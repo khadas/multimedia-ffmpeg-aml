@@ -33,7 +33,10 @@
 #include "internal.h"
 #include "url.h"
 #include "version.h"
-
+#ifdef AMFFMPEG
+#include <stdbool.h>
+#include <cutils/properties.h>
+#endif
 /*
  * An apple http stream consists of a playlist with media segment files,
  * played sequentially. There may be several playlists with the same
@@ -87,6 +90,13 @@ typedef struct HLSContext {
     URLContext *seg_hd;
     int64_t last_load_time;
     int is_encrypted;
+#ifdef AMFFMPEG
+    int index_variants;
+    int mReadByte;
+    int64_t mReadTime;
+    int64_t mBandWidth[3];
+    int bandwidth_index;
+#endif
 } HLSContext;
 
 static const AVOption hls_options[] = {
@@ -163,7 +173,33 @@ static void handle_key_args(struct key_info *info, const char *key,
         *dest_len = sizeof(info->iv);
     }
 }
+
+#ifdef AMFFMPEG
+static void sortByBandwidth(HLSContext *s)
+{
+    int i, j;
+    struct variant *tmp;
+    for (i = 0; i < s->n_variants - 1; i++) {
+        for (j = i+1; j < s->n_variants; j++) {
+            if (s->variants[i]->bandwidth > s->variants[j]->bandwidth) {
+
+                tmp = s->variants[j];
+                s->variants[j] = s->variants[i];
+                s->variants[i] = tmp;
+
+            }
+        }
+    }
+
+    for (i = 0; i < s->n_variants; i++) {
+        av_log(NULL, AV_LOG_ERROR, "[%s %d]bandwidth=%d\n", __FUNCTION__,__LINE__,s->variants[i]->bandwidth);
+    }
+}
+
+static int parse_playlist(URLContext *h, const char *url,uint64_t *estbw)
+#else
 static int parse_playlist(URLContext *h, const char *url)
+#endif
 {
     HLSContext *s = h->priv_data;
     AVIOContext *in;
@@ -174,15 +210,22 @@ static int parse_playlist(URLContext *h, const char *url)
     enum KeyType key_type = KEY_NONE;
     uint8_t iv[16] = "";
     int has_iv = 0;
-    char * kurl =NULL;
+    char * kurl = NULL;
     uint8_t kiv[33]= {0};
-
+#ifdef AMFFMPEG
+    int playlist_size = 0;
+    int64_t start_time = av_gettime_relative();
+    int64_t end_time = 0;
+#endif
     if ((ret = ffio_open_whitelist(&in, url, AVIO_FLAG_READ,
                                    &h->interrupt_callback, NULL,
                                    h->protocol_whitelist, h->protocol_blacklist)) < 0)
         return ret;
-
+#ifdef AMFFMPEG
+    playlist_size = read_chomp_line(in, line, sizeof(line));
+#else
     ff_get_chomp_line(in, line, sizeof(line));
+#endif
     if (strcmp(line, "#EXTM3U")) {
         ret = AVERROR_INVALIDDATA;
         goto fail;
@@ -191,7 +234,12 @@ static int parse_playlist(URLContext *h, const char *url)
     free_segment_list(s);
     s->finished = 0;
     while (!avio_feof(in)) {
+#ifdef AMFFMPEG
+        playlist_size += read_chomp_line(in, line, sizeof(line));
+#else
         ff_get_chomp_line(in, line, sizeof(line));
+#endif
+        av_log(NULL, AV_LOG_ERROR, "%s\n",line);
         if (av_strstart(line, "#EXT-X-STREAM-INF:", &ptr)) {
             struct variant_info info = {{0}};
             is_variant = 1;
@@ -255,7 +303,14 @@ static int parse_playlist(URLContext *h, const char *url)
         }
     }
     s->last_load_time = av_gettime_relative();
-
+#ifdef AMFFMPEG
+    end_time = av_gettime_relative();
+    if (end_time != start_time)
+    {
+        *estbw = ((uint64_t)(8 * playlist_size * 1000) /((end_time - start_time)/1000));
+        av_log(NULL, AV_LOG_WARNING, "start_time %lld end %lld playlist_size %d *estbw %lld\n",start_time,end_time,playlist_size,*estbw);
+    }
+#endif
 fail:
     if (kurl)
     {
@@ -281,7 +336,6 @@ static int hls_open(URLContext *h, const char *uri, int flags)
     HLSContext *s = h->priv_data;
     int ret, i;
     const char *nested_url;
-
     if (flags & AVIO_FLAG_WRITE)
         return AVERROR(ENOSYS);
 
@@ -306,7 +360,34 @@ static int hls_open(URLContext *h, const char *uri, int flags)
            "and work as well as the protocol implementation. (If not, "
            "please report it.) To use the demuxer, simply use %s as url.\n",
            s->playlisturl);
+#ifdef AMFFMPEG
+    uint64_t bw = 0;
+    if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+        goto fail;
 
+    if (s->n_segments == 0 && s->n_variants > 0) {
+        int max_bandwidth = 0, maxvar = -1;
+        s->index_variants = 0;
+        char value[92] = {0};
+
+        if (property_get("media.amffmpeg.start.bw", value, NULL))
+        {
+            bw = atoi((const char*)value);
+            av_log(NULL, AV_LOG_WARNING, "bw=%lld\n",bw);
+        } else
+            bw = 0;
+        for (i = 0; i < s->n_variants; i++) {
+            if (s->variants[i]->bandwidth <= bw) {
+                s->index_variants = i;
+            }
+        }
+
+        av_strlcpy(s->playlisturl, s->variants[s->index_variants]->url,
+                   sizeof(s->playlisturl));
+        if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+            goto fail;
+    }
+#else
     if ((ret = parse_playlist(h, s->playlisturl)) < 0)
         goto fail;
 
@@ -323,7 +404,7 @@ static int hls_open(URLContext *h, const char *uri, int flags)
         if ((ret = parse_playlist(h, s->playlisturl)) < 0)
             goto fail;
     }
-
+#endif
     if (s->n_segments == 0) {
         av_log(h, AV_LOG_WARNING, "Empty playlist\n");
         ret = AVERROR(EIO);
@@ -341,6 +422,10 @@ static int hls_open(URLContext *h, const char *uri, int flags)
        //if (av_opt_set_int(s, "durations", s->durations, 0) < 0)
        //     av_log(s, AV_LOG_ERROR, "set s->duration error!\n");
     }
+#ifdef AMFFMPEG
+    memset(s->mBandWidth, 0, sizeof(s->mBandWidth));
+    s->bandwidth_index = 0;
+#endif
     return 0;
 
 fail:
@@ -356,10 +441,24 @@ static int hls_read(URLContext *h, uint8_t *buf, int size)
     int64_t reload_interval;
     int64_t cur_no = 0;
     int64_t seg_size = 0;
-
+#ifdef AMFFMPEG
+    int64_t bw = 0 ;
+    int64_t bandwidth = 0 ;
+#endif
 start:
     if (s->seg_hd) {
+#ifdef AMFFMPEG
+        int64_t start = av_gettime_relative();
         ret = ffurl_read(s->seg_hd, buf, size);
+        int64_t delay = av_gettime_relative() - start;
+#else
+        ret = ffurl_read(s->seg_hd, buf, size);
+#endif
+
+        if (s->start_seq_no && (s->cur_seq_no >= s->start_seq_no))
+            cur_no = s->cur_seq_no - s->start_seq_no ;
+        else
+            cur_no = s->cur_seq_no;
 
         cur_no = s->cur_seq_no;
         //if (av_opt_set_int(s, "cur_seq_no", cur_no, 0) < 0)
@@ -383,26 +482,110 @@ start:
             {
               av_log(s, AV_LOG_WARNING, "set cur_iv error\n");
             }
-            if (av_opt_set(s, "cur_kurl", s->segments[cur_no]->seg_kurl, 0) < 0)
+            if ((s->n_segments > 0) && av_opt_set(s, "cur_kurl", s->segments[cur_no]->seg_kurl, 0) < 0)
             {
                 av_log(s, AV_LOG_WARNING, "set cur_kurl error!\n");
             } */
         }
-        if (ret > 0)
+        if (ret > 0) {
+            /*av_log(s, AV_LOG_ERROR, "[%s %d] size=%d delay=%lld\n",
+                    __FUNCTION__, __LINE__, ret, delay);
+                    */
+#ifdef AMFFMPEG
+            s->mReadTime += delay;
+            s->mReadByte += ret;
+#endif
             return ret;
+        }
     }
     if (s->seg_hd) {
+#ifdef AMFFMPEG
+        if (s->n_variants > 0) {
+            bandwidth = (int64_t)s->mReadByte * 8E6 / s->mReadTime;
+            av_log(s, AV_LOG_ERROR, "[%s %d] %d bandwidth=%lld curbw=%d size=%d delay=%lld ret=%d\n",
+                    __FUNCTION__, __LINE__, s->cur_seq_size, bandwidth, s->variants[s->index_variants]->bandwidth, s->mReadByte, s->mReadTime, ret);
+            s->mReadByte = 0;
+            s->mReadTime = 0;
+            if (s->bandwidth_index ==3) {
+                s->bandwidth_index = 0;
+            }
+            if (bandwidth > 0)
+                s->mBandWidth[s->bandwidth_index++] = bandwidth;
+        }
+#endif
         ffurl_closep(&s->seg_hd);
         s->cur_seq_no++;
     }
     reload_interval = s->n_segments > 0 ?
-                      s->segments[s->n_segments - 1]->duration :
-                      s->target_duration;
+        s->segments[s->n_segments - 1]->duration :
+        s->target_duration;
+#ifdef AMFFMPEG
+
+    int i;
+    int needSwitch = 0;
+    int temp;
+    int64_t minEstimate = -1, maxEstimate = -1;
+    if (s->n_variants > 0) {
+        for (i=0; i<3; i++) {
+            if (minEstimate < 0 || minEstimate > s->mBandWidth[i]) {
+                minEstimate = s->mBandWidth[i];
+            }
+            if (maxEstimate < 0 || maxEstimate < s->mBandWidth[i]) {
+                maxEstimate = s->mBandWidth[i];
+            }
+            av_log(NULL, AV_LOG_ERROR, "estimate=%lld\n",s->mBandWidth[i]);
+        }
+        bool mIsStable = (maxEstimate <= minEstimate * 4 / 3)
+            && bandwidth > minEstimate * 7 / 10;
+        av_log(NULL, AV_LOG_ERROR, "minEstimate=%lld maxEstimate=%lld stable=%d\n",
+                minEstimate, maxEstimate, mIsStable);
+        temp = s->index_variants;
+        if ((bandwidth < s->variants[s->index_variants]->bandwidth)) {
+            for (i = 0; i < s->n_variants; i++) {
+                if (s->variants[i]->bandwidth < bandwidth) {
+                    temp = i;
+                }
+            }
+            if (temp != s->index_variants) {
+                s->index_variants = temp;
+                av_log(s, AV_LOG_ERROR, "switch down index=%d\n",s->index_variants);
+                needSwitch = 1;
+                av_strlcpy(s->playlisturl, s->variants[s->index_variants]->url,
+                        sizeof(s->playlisturl));
+            }
+        } else if (bandwidth > 13*s->variants[s->index_variants]->bandwidth/10) {
+            for (i = 0; i < s->n_variants; i++) {
+                av_log(NULL, AV_LOG_ERROR, "bandwidth=%lld s->variants[i]->bandwidth=%d\n",
+                        bandwidth, s->variants[i]->bandwidth);
+                if ((int64_t)s->variants[i]->bandwidth < bandwidth) {
+                    temp = i;
+                }
+            }
+            if (temp != s->index_variants && (mIsStable || minEstimate == 0)) {
+                s->index_variants = temp;
+                av_log(s, AV_LOG_ERROR, "switch up index=%d\n", s->index_variants);
+                needSwitch = 1;
+                av_strlcpy(s->playlisturl, s->variants[s->index_variants]->url,
+                        sizeof(s->playlisturl));
+            }
+        }
+    }
+#endif
 retry:
+#ifdef AMFFMPEG
+    if (s->finished && needSwitch)
+        if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+            return ret;
+#endif
     if (!s->finished) {
         int64_t now = av_gettime_relative();
+#ifdef AMFFMPEG
+        if (now - s->last_load_time >= reload_interval || needSwitch) {
+            if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+#else
         if (now - s->last_load_time >= reload_interval) {
             if ((ret = parse_playlist(h, s->playlisturl)) < 0)
+#endif
                 return ret;
             /* If we need to reload the playlist again below (if
              * there's still no more segments), switch to a reload
@@ -427,7 +610,9 @@ retry:
         goto retry;
     }
     url = s->segments[s->cur_seq_no - s->start_seq_no]->url;
-    av_log(h, AV_LOG_DEBUG, "opening %s\n", url);
+#ifdef AMFFMPEG
+    av_log(h, AV_LOG_DEBUG, "opening %s \ncur_no=%lld cur_seq_no=%d\n", url, cur_no, s->cur_seq_no);
+#endif
     ret = ffurl_open_whitelist(&s->seg_hd, url, AVIO_FLAG_READ,
                                &h->interrupt_callback, NULL,
                                h->protocol_whitelist, h->protocol_blacklist, h);
@@ -444,7 +629,12 @@ static int64_t hls_seek_ext(URLContext *h, int64_t off, int whence)
 {   /*add for drmplayer, off is segment idx (0 or start segment) OR timeUs*/
     int i = 0;
     HLSContext *s = h->priv_data;
+#ifdef AMFFMPEG
+    av_log(h, AV_LOG_WARNING, "hls_seek_ext enter cur_seq_no %d start_seq_no %d off 0x%lld s->durations %d \n", s->cur_seq_no,s->start_seq_no,off,s->durations);
+    if ((off >= s->start_seq_no && off <= s->durations) || s->start_seq_no)
+#else
     if (off >= s->start_seq_no && off <= s->durations)
+#endif
     {
        if (s->seg_hd)
        {
@@ -454,7 +644,10 @@ static int64_t hls_seek_ext(URLContext *h, int64_t off, int whence)
     }
     if ((off == 0) || (s->n_segments == 1))
     {
-       s->cur_seq_no = s->start_seq_no;
+#ifdef AMFFMPEG
+        if (s->finished)
+#endif
+            s->cur_seq_no = s->start_seq_no;
     }
     else if ((off > s->start_seq_no) && (off < s->durations))
     {
@@ -469,8 +662,10 @@ static int64_t hls_seek_ext(URLContext *h, int64_t off, int whence)
           }
        }
     }
+#ifdef AMFFMPEG
+    av_log(h, AV_LOG_WARNING, "hls_seek_ext cur_seq_no %d start_seq_no %d off 0x%lld \n", s->cur_seq_no,s->start_seq_no,off);
+#endif
 
-     av_log(h, AV_LOG_ERROR, "hls_seek_ext s->cur_seq_no %d\n", s->cur_seq_no);
 
     return off;
 }

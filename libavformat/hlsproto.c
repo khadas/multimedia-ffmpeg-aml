@@ -84,7 +84,11 @@ typedef struct HLSContext {
     struct variant **variants;
     int cur_seq_no;
     int cur_seq_size;
+#ifdef AMFFMPEG
+    int64_t durations;
+#else
     int durations;
+#endif
     char* cur_kurl;
     uint8_t cur_iv[33];
     URLContext *seg_hd;
@@ -104,7 +108,11 @@ static const AVOption hls_options[] = {
     {"cur_seq_size", "current segment size", offsetof(HLSContext, cur_seq_size), AV_OPT_TYPE_INT,{.i64 = 0}, 0, INT_MAX, AV_OPT_FLAG_EXPORT},
     {"cur_kurl", "current key url", offsetof(HLSContext,cur_kurl), AV_OPT_TYPE_STRING, {.str=""}},
     {"cur_iv",  "current iv", offsetof(HLSContext,cur_iv),  AV_OPT_TYPE_BINARY, .flags = AV_OPT_FLAG_DECODING_PARAM|AV_OPT_FLAG_ENCODING_PARAM },
+#ifdef AMFFMPEG
+    {"durations",  "durations", offsetof(HLSContext,durations),  AV_OPT_TYPE_INT64,{.i64 = 0}, 0, INT64_MAX, AV_OPT_FLAG_EXPORT},
+#else
     {"durations",  "durations", offsetof(HLSContext,durations),  AV_OPT_TYPE_INT,{.i64 = 0}, 0, INT_MAX, AV_OPT_FLAG_EXPORT},
+#endif
     { NULL },
 };
 
@@ -651,7 +659,11 @@ static int64_t hls_seek_ext(URLContext *h, int64_t off, int whence)
     }
     else if ((off > s->start_seq_no) && (off < s->durations))
     {
+#ifdef AMFFMPEG
+       int64_t tmpdurations = s->durations;
+#else
        int tmpdurations = s->durations;
+#endif
        for (i = s->n_segments -1; i >= 0; i--)
        {
           tmpdurations -= s->segments[i]->duration;

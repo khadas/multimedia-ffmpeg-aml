@@ -38,7 +38,7 @@ FFMPEG_SOURCE_ARM64 := $(shell cat $(LOCAL_PATH)/"ffmpeg.arm64.src")
 #$(warning "Define FFMPEG_SOURCE_ARM64: " $(FFMPEG_SOURCE_ARM64))
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libamffmpeg4.4
+LOCAL_MODULE := libamffmpeg
 
 
 LOCAL_SYSTEM_EXT_MODULE := true
@@ -79,7 +79,7 @@ include $(BUILD_SHARED_LIBRARY)
 ifneq (0, $(shell expr $(PLATFORM_VERSION) \>= 9))
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libamffmpeg4.4.vendor
+LOCAL_MODULE := libamffmpeg.vendor
 
 LOCAL_VENDOR_MODULE := true
 

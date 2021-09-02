@@ -576,6 +576,9 @@ static void fill_buffer(AVIOContext *s)
            be done without rereading data */
         s->eof_reached = 1;
     } else if (len < 0) {
+#ifdef AMFFMPEG
+        if (len != AVERROR(ETIME))
+#endif
         s->eof_reached = 1;
         s->error= len;
     } else {
@@ -650,6 +653,9 @@ int avio_read(AVIOContext *s, unsigned char *buf, int size)
                     s->eof_reached = 1;
                     break;
                 } else if (len < 0) {
+#ifdef AMFFMPEG
+                    if (len != AVERROR(ETIME))
+#endif
                     s->eof_reached = 1;
                     s->error= len;
                     break;

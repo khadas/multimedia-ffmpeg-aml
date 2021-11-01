@@ -542,10 +542,8 @@ libavformat/dsfdec.c
 libavformat/dsicin.c 
 libavformat/dss.c 
 libavformat/dump.c 
-libavformat/dv.c 
 libavformat/dvbsub.c 
 libavformat/dvbtxt.c 
-libavformat/dvenc.c 
 libavformat/dxa.c 
 libavformat/eacdata.c 
 libavformat/electronicarts.c 
@@ -924,6 +922,10 @@ libavformat/xwma.c
 libavformat/yop.c 
 libavformat/yuv4mpegdec.c 
 libavformat/yuv4mpegenc.c 
+libavformat/avisynth.c 
+libavformat/dtsdec.c 
+libavformat/dtshddec.c 
+libavformat/ac3dec.c 
 libavcodec/012v.c 
 libavcodec/4xm.c 
 libavcodec/8bps.c 
@@ -1190,6 +1192,7 @@ libavcodec/cri_parser.c
 libavcodec/cscd.c 
 libavcodec/cyuv.c 
 libavcodec/d3d11va.c 
+libavcodec/dca.c 
 libavcodec/dct.c 
 libavcodec/dct32_fixed.c 
 libavcodec/dct32_float.c 
@@ -1208,8 +1211,6 @@ libavcodec/dnxhd_parser.c
 libavcodec/dnxhddata.c 
 libavcodec/dnxhddec.c 
 libavcodec/dnxhdenc.c 
-libavcodec/dolby_e_parse.c 
-libavcodec/dolby_e_parser.c 
 libavcodec/dpcm.c 
 libavcodec/dpx.c 
 libavcodec/dpx_parser.c 
@@ -1221,7 +1222,6 @@ libavcodec/dsicinvideo.c
 libavcodec/dss_sp.c 
 libavcodec/dstdec.c 
 libavcodec/dump_extradata_bsf.c 
-libavcodec/dv.c 
 libavcodec/dv_profile.c 
 libavcodec/dvaudio_parser.c 
 libavcodec/dvaudiodec.c 
@@ -1230,12 +1230,10 @@ libavcodec/dvbsubdec.c
 libavcodec/dvbsubenc.c 
 libavcodec/dvd_nav_parser.c 
 libavcodec/dvdata.c 
-libavcodec/dvdec.c 
 libavcodec/dvdsub.c 
 libavcodec/dvdsub_parser.c 
 libavcodec/dvdsubdec.c 
 libavcodec/dvdsubenc.c 
-libavcodec/dvenc.c 
 libavcodec/dxtory.c 
 libavcodec/dxv.c 
 libavcodec/dynamic_hdr10_plus.c 

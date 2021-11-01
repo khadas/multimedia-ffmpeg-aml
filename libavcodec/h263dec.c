@@ -508,6 +508,13 @@ retry:
         ret = ff_intel_h263_decode_picture_header(s);
     } else if (CONFIG_FLV_DECODER && s->h263_flv) {
         ret = ff_flv_decode_picture_header(s);
+#ifdef AMFFMPEG
+        if (ret == AVERROR_INVALIDDATA) {
+            s->h263_flv = 0;
+            init_get_bits8(&s->gb, buf, buf_size);
+            ret = ff_h263_decode_picture_header(s);
+        }
+#endif
     } else {
         ret = ff_h263_decode_picture_header(s);
     }

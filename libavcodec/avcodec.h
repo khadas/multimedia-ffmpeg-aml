@@ -2107,6 +2107,11 @@ typedef struct AVCodecContext {
     int64_t pts_correction_last_pts;       /// PTS of the last frame
     int64_t pts_correction_last_dts;       /// DTS of the last frame
 
+#ifdef AMFFMPEG
+    /* to record mpeg4 vol_sprite_usage */
+    int mpeg4_vol_sprite;
+    int mpeg4_quater_sample;
+#endif
     /**
      * Character encoding of the input subtitles file.
      * - decoding: set by user
@@ -2388,6 +2393,15 @@ typedef struct AVCodecContext {
      * - decoding: unused
      */
     int (*get_encode_buffer)(struct AVCodecContext *s, AVPacket *pkt, int flags);
+#ifdef AMFFMPEG
+    int has_dolby_vision_meta;
+    int has_dolby_vision_config_box;
+    int dolby_vision_profile;
+    int dolby_vision_level;
+    int has_dolby_vision_el;
+    int dolby_vision_rpu_assoc;
+    int dolby_vision_bl_compat_id;
+#endif
 } AVCodecContext;
 
 #if FF_API_CODEC_GET_SET
@@ -3420,6 +3434,11 @@ typedef struct AVCodecParserContext {
 #define PARSER_FLAG_FETCHED_OFFSET            0x0004
 #define PARSER_FLAG_USE_CODEC_TS              0x1000
 
+#ifdef AMFFMPEG
+    /*for dolby vision flag*/
+#define PARSER_FLAG_HAS_DV_META               0x0008
+#define PARSER_FLAG_HAS_ES_META               0x0010
+#endif
     int64_t offset;      ///< byte offset from starting packet start
     int64_t cur_frame_end[AV_PARSER_PTS_NB];
 

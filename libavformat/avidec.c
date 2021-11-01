@@ -30,7 +30,6 @@
 #include "libavutil/mathematics.h"
 #include "avformat.h"
 #include "avi.h"
-#include "dv.h"
 #include "internal.h"
 #include "isom.h"
 #include "riff.h"
@@ -77,7 +76,6 @@ typedef struct AVIContext {
     int is_odml;
     int non_interleaved;
     int stream_index;
-    DVDemuxContext *dv_demux;
     int odml_depth;
     int use_odml;
 #define MAX_ODML_DEPTH 1000
@@ -616,13 +614,6 @@ static int avi_read_header(AVFormatContext *s)
                 ast = s->streams[0]->priv_data;
                 st->priv_data = NULL;
                 ff_free_stream(s, st);
-
-                avi->dv_demux = avpriv_dv_init_demux(s);
-                if (!avi->dv_demux) {
-                    av_free(ast);
-                    return AVERROR(ENOMEM);
-                }
-
                 s->streams[0]->priv_data = ast;
                 avio_skip(pb, 3 * 4);
                 ast->scale = avio_rl32(pb);
@@ -733,7 +724,7 @@ static int avi_read_header(AVFormatContext *s)
             if (!size && (codec_type == AVMEDIA_TYPE_AUDIO ||
                           codec_type == AVMEDIA_TYPE_VIDEO))
                 break;
-            if (stream_index >= (unsigned)s->nb_streams || avi->dv_demux) {
+            if (stream_index >= (unsigned)s->nb_streams) {
                 avio_skip(pb, size);
             } else {
                 uint64_t cur_pos = avio_tell(pb);
@@ -1060,10 +1051,6 @@ end_of_header:
         if (st->nb_index_entries)
             break;
     }
-    // DV-in-AVI cannot be non-interleaved, if set this must be
-    // a mis-detection.
-    if (avi->dv_demux)
-        avi->non_interleaved = 0;
     if (i == s->nb_streams && avi->non_interleaved) {
         av_log(s, AV_LOG_WARNING,
                "Non-interleaved AVI without index, switching to interleaved\n");
@@ -1269,9 +1256,6 @@ start_sync:
             goto start_sync;
         }
 
-        if (avi->dv_demux && n != 0)
-            continue;
-
         // parse ##dc/##wb
         if (n < s->nb_streams) {
             AVStream *st;
@@ -1329,12 +1313,11 @@ start_sync:
                     ast->prefix_count = 0;
                 }
 
-                if (!avi->dv_demux &&
-                    ((st->discard >= AVDISCARD_DEFAULT && size == 0) /* ||
+                if ((st->discard >= AVDISCARD_DEFAULT && size == 0) /* ||
                         // FIXME: needs a little reordering
                         (st->discard >= AVDISCARD_NONKEY &&
                         !(pkt->flags & AV_PKT_FLAG_KEY)) */
-                    || st->discard >= AVDISCARD_ALL)) {
+                    || st->discard >= AVDISCARD_ALL) {
 
                     ast->frame_offset += get_duration(ast, size);
                     avio_skip(pb, size);
@@ -1438,14 +1421,6 @@ static int avi_read_packet(AVFormatContext *s, AVPacket *pkt)
     AVIOContext *pb = s->pb;
     int err;
 
-    if (CONFIG_DV_DEMUXER && avi->dv_demux) {
-        int size = avpriv_dv_get_packet(avi->dv_demux, pkt);
-        if (size >= 0)
-            return size;
-        else
-            goto resync;
-    }
-
     if (avi->non_interleaved) {
         err = ni_prepare_read(s);
         if (err < 0)
@@ -1456,7 +1431,6 @@ resync:
     if (avi->stream_index >= 0) {
         AVStream *st   = s->streams[avi->stream_index];
         AVIStream *ast = st->priv_data;
-        int dv_demux = CONFIG_DV_DEMUXER && avi->dv_demux;
         int size, err;
 
         if (get_subtitle_pkt(s, st, pkt))
@@ -1479,7 +1453,7 @@ resync:
             return err;
         size = err;
 
-        if (ast->has_pal && pkt->size < (unsigned)INT_MAX / 2 && !dv_demux) {
+        if (ast->has_pal && pkt->size < (unsigned)INT_MAX / 2) {
             uint8_t *pal;
             pal = av_packet_new_side_data(pkt,
                                           AV_PKT_DATA_PALETTE,
@@ -1493,15 +1467,7 @@ resync:
             }
         }
 
-        if (CONFIG_DV_DEMUXER && dv_demux) {
-            AVBufferRef *avbuf = pkt->buf;
-            size = avpriv_dv_produce_packet(avi->dv_demux, pkt,
-                                            pkt->data, pkt->size, pkt->pos);
-            pkt->buf    = avbuf;
-            pkt->flags |= AV_PKT_FLAG_KEY;
-            if (size < 0)
-                av_packet_unref(pkt);
-        } else if (st->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE &&
+        if (st->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE &&
                    !st->codecpar->codec_tag && read_gab2_sub(s, st, pkt)) {
             ast->frame_offset++;
             avi->stream_index = -1;
@@ -1825,12 +1791,6 @@ static int avi_read_seek(AVFormatContext *s, int stream_index,
     int64_t pos, pos_min;
     AVIStream *ast;
 
-    /* Does not matter which stream is requested dv in avi has the
-     * stream information in the first video stream.
-     */
-    if (avi->dv_demux)
-        stream_index = 0;
-
     if (!avi->index_loaded) {
         /* we only load the index on demand */
         avi_load_index(s);
@@ -1859,21 +1819,6 @@ static int avi_read_seek(AVFormatContext *s, int stream_index,
     av_log(s, AV_LOG_TRACE, "XX %"PRId64" %d %"PRId64"\n",
             timestamp, index, st->index_entries[index].timestamp);
 
-    if (CONFIG_DV_DEMUXER && avi->dv_demux) {
-        /* One and only one real stream for DV in AVI, and it has video  */
-        /* offsets. Calling with other stream indexes should have failed */
-        /* the av_index_search_timestamp call above.                     */
-
-        if (avio_seek(s->pb, pos, SEEK_SET) < 0)
-            return -1;
-
-        /* Feed the DV video stream version of the timestamp to the */
-        /* DV demux so it can synthesize correct timestamps.        */
-        ff_dv_offset_reset(avi->dv_demux, timestamp);
-
-        avi->stream_index = -1;
-        return 0;
-    }
 
     pos_min = pos;
     for (i = 0; i < s->nb_streams; i++) {
@@ -1950,8 +1895,6 @@ static int avi_read_close(AVFormatContext *s)
             av_packet_free(&ast->sub_pkt);
         }
     }
-
-    av_freep(&avi->dv_demux);
 
     return 0;
 }

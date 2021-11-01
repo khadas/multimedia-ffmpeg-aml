@@ -58,6 +58,9 @@
 #include "isom.h"
 #include "libavcodec/get_bits.h"
 #include "id3v1.h"
+#ifdef AMFFMPEG
+#include "id3v2.h"
+#endif
 #include "mov_chan.h"
 #include "replaygain.h"
 
@@ -121,6 +124,102 @@ static int mov_metadata_int8_no_padding(MOVContext *c, AVIOContext *pb,
 
     return 0;
 }
+
+#ifdef AMFFMPEG
+static int get_string16(AVIOContext *pb, int maxlen, char *buf, int buflen)
+{
+    char *q = buf;
+    int ret = 0;
+    if (buflen <= 0)
+        return AVERROR(EINVAL);
+    while (ret + 1 < maxlen) {
+        uint8_t tmp;
+        uint32_t ch;
+        GET_UTF16(ch, (ret += 2) <= maxlen ? avio_rl16(pb) : 0, break;);
+        PUT_UTF8(ch, tmp, if (q - buf < buflen - 1) *q++ = tmp;)
+    }
+    *q = 0;
+
+    return ret;
+}
+
+static int mov_metadata_3gp_matadata(MOVContext *c, AVIOContext *pb,
+                                        MOVAtom atom)
+{
+    av_log(c->fc, AV_LOG_ERROR, "mov_metadata_3gp_matadata:%lld\n", atom.size);
+    const char *key = NULL;
+    uint32_t tag = atom.type;
+    int64_t len = atom.size;
+
+    if (len < 6)
+        return AVERROR_INVALIDDATA;
+
+    uint8_t* buf = av_mallocz(len + 1);
+
+    if (avio_read(pb, buf, len) != len) {
+        av_freep(&buf);
+        return AVERROR_INVALIDDATA;
+    }
+
+    switch (tag) {
+        case MKTAG('t','i','t','l'): key = "title"; break;
+        case MKTAG('p','e','r','f'): key = "artist"; break;
+        case MKTAG('a','u','t','h'): key = "writer"; break;
+        case MKTAG('a','l','b','m'):
+        {
+            if (buf[len - 1] != '\0') {
+                char tmp[4];
+                sprintf(tmp, "%u", buf[len - 1]);
+                c->fc->event_flags |= AVFMT_EVENT_FLAG_METADATA_UPDATED;
+                av_dict_set(&c->fc->metadata, "track", tmp, 0);
+            }
+            key = "album";
+            break;
+        }
+        case MKTAG('y','r','r','c'):
+        {
+            char tmp[5];
+            uint16_t year = buf[4] << 8 | buf[5];
+
+            if (year < 10000) {
+                sprintf(tmp, "%u", year);
+                c->fc->event_flags |= AVFMT_EVENT_FLAG_METADATA_UPDATED;
+                av_dict_set(&c->fc->metadata, "year", tmp, 0);
+            }
+
+        }
+        default:
+            break;
+    }
+
+    if (key != NULL) {
+        int isUTF8 = 1; // Common case
+        uint16_t *framedata = NULL;
+
+        if (len- 6 >= 4) {
+            framedata = (uint16_t *)(buf + 6);
+            if (0xfeff == *framedata) {
+                isUTF8 = 0;
+            }
+        }
+        if (isUTF8) {
+            buf[len] = 0;
+            c->fc->event_flags |= AVFMT_EVENT_FLAG_METADATA_UPDATED;
+            av_dict_set(&c->fc->metadata, key, (const char *)buf + 6, 0);
+        } else {
+            memset(buf, 0, len + 1);
+            avio_seek(pb, -len + 8, SEEK_CUR);
+            get_string16(pb, len - 8, buf, len + 1);
+            av_log(c->fc, AV_LOG_VERBOSE, "valse %s\n", buf);
+            c->fc->event_flags |= AVFMT_EVENT_FLAG_METADATA_UPDATED;
+            av_dict_set(&c->fc->metadata, key, (const char *)buf, 0);
+        }
+    }
+
+    av_freep(&buf);
+    return 0;
+}
+#endif
 
 static int mov_metadata_gnre(MOVContext *c, AVIOContext *pb,
                              unsigned len, const char *key)
@@ -399,6 +498,15 @@ static int mov_read_udta_string(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     case MKTAG(0xa9,'w','r','n'): key = "warning";   break;
     case MKTAG(0xa9,'w','r','t'): key = "composer";  break;
     case MKTAG(0xa9,'x','y','z'): key = "location";  break;
+#ifdef AMFFMPEG
+/*add for 3gp metaData */
+    case MKTAG('t','i','t','l'):
+    case MKTAG('p','e','r','f'):
+    case MKTAG('a','u','t','h'):
+    case MKTAG('a','l','b','m'):
+    case MKTAG('y','r','r','c'):
+        return mov_metadata_3gp_matadata(c, pb, atom);
+#endif
     }
 retry:
     if (c->itunes_metadata && atom.size > 8) {
@@ -1430,8 +1538,15 @@ static int mov_read_moof(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 
 static void mov_metadata_creation_time(AVDictionary **metadata, int64_t time, void *logctx)
 {
+#ifdef AMFFMPEG
+    if (time >= 0) {
+        if (time < INT64_MIN + 2082844800) {
+            return;
+        }
+#else
     if (time) {
         if (time >= 2082844800)
+#endif
             time -= 2082844800;  /* seconds between 1904-01-01 and Epoch */
 
         if ((int64_t)(time * 1000000ULL) / 1000000 != time) {
@@ -1962,6 +2077,118 @@ static int mov_read_glbl(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     return 0;
 }
 
+#ifdef AMFFMPEG
+/**
+ * This function reads atom content and puts data in extradata without tag
+ * nor size unlike mov_read_extradata.
+ */
+static int mov_read_dvcc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+{
+    AVStream *st;
+    int ret;
+    uint8_t config_data[64];
+    int i = 0;
+
+    av_log(c, AV_LOG_VERBOSE, "mov_read_dvcc:%d\n", atom.size);
+
+    if (c->fc->nb_streams < 1)
+        return 0;
+    st = c->fc->streams[c->fc->nb_streams-1];
+
+    if ((uint64_t)atom.size > (1<<30))
+        return AVERROR_INVALIDDATA;
+
+    avio_read(pb, config_data, atom.size);
+
+    if (config_data[0] != 1 || config_data[1] != 0)
+        return 0;
+
+    uint8_t profile = config_data[2] >> 1;
+    // profile == (0, 1, 9) --> AVC; profile = (2,3,4,5,6,7,8) --> HEVC;
+    if (profile > 9) {
+        av_log(c, AV_LOG_ERROR, "profile error:%d\n", profile);
+        return 0;
+    }
+
+    uint8_t level = ((config_data[2] & 0x1) << 5) | ((config_data[3] >> 3) & 0x1f);
+
+    const uint8_t rpu_present_flag = (config_data[3] >> 2) & 0x01;
+    const uint8_t el_present_flag = (config_data[3] >> 1) & 0x01;
+    const uint8_t bl_present_flag = (config_data[3] & 0x01);
+
+
+    int32_t bl_compatibility_id = 0;
+#ifdef AMFFMEPG
+    if (atom.size >= 4) {
+#else
+    if (atom.size == 4) {
+#endif
+        bl_compatibility_id = (int32_t)(config_data[4] >> 4);
+    }
+    av_log(c, AV_LOG_INFO, "profile:%d,level:%d bl_compatibility_id:%d\n", profile, level, bl_compatibility_id);
+
+    st->codec->has_dolby_vision_config_box = 1;
+    st->codec->dolby_vision_profile = profile;
+    st->codec->dolby_vision_level = level;
+
+    if (rpu_present_flag && el_present_flag && !bl_present_flag) {
+        st->codec->dolby_vision_rpu_assoc = 1;
+    } else {
+        st->codec->dolby_vision_rpu_assoc = 0;
+    }
+
+    if (profile == 8 || profile == 9) {
+        st->codec->dolby_vision_bl_compat_id = bl_compatibility_id;
+    }
+    return 0;
+}
+
+/**
+ * This function reads atom content and puts data in extradata without tag
+ * nor size unlike mov_read_extradata.
+ */
+static int mov_read_pssh(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+{
+    MOVPsshInfo *pssh;
+    int err;
+    int ret;
+    uint32_t psshdatalen;
+    int i;
+
+    av_log(c, AV_LOG_VERBOSE, "mov_read_pssh:%d\n", atom.size);
+
+    if ((uint64_t)c->pssh_count+1 >= UINT_MAX / sizeof(*c->pssh_info))
+        return AVERROR_INVALIDDATA;
+    if ((err = av_reallocp_array(&c->pssh_info, c->pssh_count + 1,
+                                 sizeof(*c->pssh_info))) < 0) {
+        c->pssh_count = 0;
+        return err;
+    }
+
+    pssh = &c->pssh_info[c->pssh_count++];
+    avio_skip(pb, 4);
+    ret = avio_read(pb, &pssh->uuid, 16);
+    if (ret < 16) {
+        av_log(c, AV_LOG_ERROR, "avio_read:%d, error\n", ret);
+        return AVERROR_INVALIDDATA;
+    }
+
+    psshdatalen = avio_rb32(pb);
+
+    pssh->data = av_malloc(psshdatalen);
+    pssh->data_len = psshdatalen;
+
+    ret = avio_read(pb, pssh->data, psshdatalen);
+    if (ret < psshdatalen) {
+        av_log(c, AV_LOG_ERROR, "avio_read:%d, error\n", ret);
+        av_freep(&pssh->data);
+        return AVERROR_INVALIDDATA;
+    }
+
+    return 0;
+}
+#endif
+
 static int mov_read_dvc1(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
     AVStream *st;
@@ -2392,22 +2619,6 @@ static int mov_finalize_stsd_codec(MOVContext *c, AVIOContext *pb,
 
     /* special codec parameters handling */
     switch (st->codecpar->codec_id) {
-#if CONFIG_DV_DEMUXER
-    case AV_CODEC_ID_DVAUDIO:
-        c->dv_fctx = avformat_alloc_context();
-        if (!c->dv_fctx) {
-            av_log(c->fc, AV_LOG_ERROR, "dv demux context alloc error\n");
-            return AVERROR(ENOMEM);
-        }
-        c->dv_demux = avpriv_dv_init_demux(c->dv_fctx);
-        if (!c->dv_demux) {
-            av_log(c->fc, AV_LOG_ERROR, "dv demux context init error\n");
-            return AVERROR(ENOMEM);
-        }
-        sc->dv_audio_container = 1;
-        st->codecpar->codec_id    = AV_CODEC_ID_PCM_S16LE;
-        break;
-#endif
     /* no ifdef since parameters are always those */
     case AV_CODEC_ID_QCELP:
         st->codecpar->channels = 1;
@@ -2432,6 +2643,9 @@ static int mov_finalize_stsd_codec(MOVContext *c, AVIOContext *pb,
     case AV_CODEC_ID_MP3:
         /* force type after stsd for m1a hdlr */
         st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+#ifdef AMFFMPEG
+        st->need_parsing      = AVSTREAM_PARSE_FULL;
+#endif
         break;
     case AV_CODEC_ID_GSM:
     case AV_CODEC_ID_ADPCM_MS:
@@ -2459,6 +2673,12 @@ static int mov_finalize_stsd_codec(MOVContext *c, AVIOContext *pb,
     case AV_CODEC_ID_AV1:
         st->need_parsing = AVSTREAM_PARSE_HEADERS;
         break;
+#ifdef AMFFMPEG
+    case AV_CODEC_ID_AC4:
+        if (st->codecpar->channels == 0)
+            st->codecpar->channels = 2;
+        break;
+#endif
     default:
         break;
     }
@@ -4472,6 +4692,9 @@ static int mov_read_custom(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     if (mean && key && val) {
         if (strcmp(key, "iTunSMPB") == 0) {
             int priming, remainder, samples;
+#ifdef AMFFMPEG
+            av_dict_set(&st->metadata, key, val, 0);
+#endif
             if(sscanf(val, "%*X %X %X %X", &priming, &remainder, &samples) == 3){
                 if(priming>0 && priming<16384)
                     sc->start_pad = priming;
@@ -6392,6 +6615,7 @@ static int mov_read_saio(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     return 0;
 }
 
+#ifndef AMFFMPEG
 static int mov_read_pssh(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
     AVEncryptionInitInfo *info, *old_init_info;
@@ -6500,6 +6724,7 @@ finish:
     av_encryption_init_info_free(info);
     return ret;
 }
+#endif
 
 static int mov_read_schm(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
@@ -6639,6 +6864,38 @@ static int mov_read_dfla(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 
     return 0;
 }
+
+#ifdef AMFFMPEG
+static void mov_id32_date2year(AVDictionary **m)
+{
+    AVDictionaryEntry *t = NULL;
+    if (t = av_dict_get(*m, "date", t, AV_DICT_MATCH_CASE)) {
+        av_dict_set(m, "year", t->value, 0);
+        av_log(NULL, AV_LOG_INFO, "[%s:%d] date:%s\n", __FUNCTION__, __LINE__, t->value);
+    }
+}
+static int mov_read_id32(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+{
+    int ret = 0;
+    ID3v2ExtraMeta *id3v2_extra_meta = NULL;
+    int len = atom.size;
+    avio_skip(pb, 6); // version+flags+pad+language
+    len -=6 ;
+    ff_id3v2_read(c->fc, ID3v2_DEFAULT_MAGIC, &id3v2_extra_meta, len);
+
+    if (id3v2_extra_meta) {
+        if ((ret = ff_id3v2_parse_apic(c->fc, &id3v2_extra_meta)) < 0) {
+            ff_id3v2_free_extra_meta(&id3v2_extra_meta);
+            return ret;
+        }
+        ff_id3v2_free_extra_meta(&id3v2_extra_meta);
+    }
+
+    mov_id32_date2year(&c->fc->metadata);
+
+    return 0;
+}
+#endif
 
 static int cenc_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size)
 {
@@ -6985,6 +7242,11 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('d','f','L','a'), mov_read_dfla },
 { MKTAG('s','t','3','d'), mov_read_st3d }, /* stereoscopic 3D video box */
 { MKTAG('s','v','3','d'), mov_read_sv3d }, /* spherical video box */
+#ifdef AMFFMPEG
+{ MKTAG('I','D','3','2'), mov_read_id32 }, /* id32 video box */
+{ MKTAG('d','v','c','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
+{ MKTAG('d','v','v','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
+#endif
 { MKTAG('d','O','p','s'), mov_read_dops },
 { MKTAG('d','m','l','p'), mov_read_dmlp },
 { MKTAG('S','m','D','m'), mov_read_smdm },
@@ -6992,8 +7254,10 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('v','p','c','C'), mov_read_vpcc },
 { MKTAG('m','d','c','v'), mov_read_mdcv },
 { MKTAG('c','l','l','i'), mov_read_clli },
+#ifndef AMFFMPEG
 { MKTAG('d','v','c','C'), mov_read_dvcc_dvvc },
 { MKTAG('d','v','v','C'), mov_read_dvcc_dvvc },
+#endif
 { 0, NULL }
 };
 
@@ -7441,7 +7705,6 @@ static int mov_read_close(AVFormatContext *s)
         av_freep(&sc->coll);
     }
 
-    av_freep(&mov->dv_demux);
     avformat_free_context(mov->dv_fctx);
     mov->dv_fctx = NULL;
 
@@ -7453,6 +7716,18 @@ static int mov_read_close(AVFormatContext *s)
     }
 
     av_freep(&mov->trex_data);
+#ifdef AMFFMPEG
+    if (mov->pssh_info && mov->pssh_count > 0) {
+        for (i = 0; i < mov->pssh_count; i++) {
+            av_freep(&mov->pssh_info[i].data);
+        }
+        av_freep(&mov->pssh_info);
+    }
+
+    if (s->pssh_info && s->pssh_len > 0) {
+        av_freep(&s->pssh_info);
+    }
+#endif
     av_freep(&mov->bitrates);
 
     for (i = 0; i < mov->frag_index.nb_items; i++) {
@@ -7716,6 +7991,31 @@ static int mov_read_header(AVFormatContext *s)
                     goto fail;
                 }
                 st->codecpar->bit_rate = sc->data_size * 8 * sc->time_scale / st->duration;
+#ifdef AMFFMPEG
+            }
+        }
+    }
+    s->pssh_info = NULL;
+    s->pssh_len = 0;
+    if (mov->pssh_info) {
+        int psshsize = 0;
+        for (i = 0; i < mov->pssh_count; i++) {
+            psshsize += 20 + mov->pssh_info[i].data_len;
+        }
+
+        if (psshsize > 0 && psshsize <= UINT32_MAX) {
+            s->pssh_info = (char*)av_mallocz(psshsize);
+            s->pssh_len = psshsize;
+            if (!s->pssh_info) {
+                av_log(s, AV_LOG_ERROR, "b/28471206");
+                return AVERROR_INVALIDDATA;
+            }
+            char *ptr = s->pssh_info;
+            for (i = 0; i < mov->pssh_count; i++) {
+                memcpy(ptr, mov->pssh_info[i].uuid, 20); // uuid + length
+                memcpy(ptr + 20, mov->pssh_info[i].data, mov->pssh_info[i].data_len);
+                ptr += (20 + mov->pssh_info[i].data_len);
+#endif
             }
         }
     }
@@ -7982,19 +8282,6 @@ static int mov_read_packet(AVFormatContext *s, AVPacket *pkt)
             }
             return ret;
         }
-#if CONFIG_DV_DEMUXER
-        if (mov->dv_demux && sc->dv_audio_container) {
-            AVBufferRef *buf = pkt->buf;
-            ret = avpriv_dv_produce_packet(mov->dv_demux, pkt, pkt->data, pkt->size, pkt->pos);
-            pkt->buf = buf;
-            av_packet_unref(pkt);
-            if (ret < 0)
-                return ret;
-            ret = avpriv_dv_get_packet(mov->dv_demux, pkt);
-            if (ret < 0)
-                return ret;
-        }
-#endif
         if (sc->has_palette) {
             uint8_t *pal;
 
@@ -8107,7 +8394,21 @@ static int mov_seek_stream(AVFormatContext *s, AVStream *st, int64_t timestamp, 
     if (ret < 0)
         return ret;
 
+#ifdef AMFFMPEG
+    if (flags & AVSEEK_FLAG_FRAME_INDEX) {
+        int want_sample = timestamp;
+        if (want_sample > 0)
+            sample = want_sample;
+    } else {
+        sample = av_index_search_timestamp(st, timestamp, flags);
+    }
+    if (st->codec->codec_type == AVMEDIA_TYPE_VIDEO && sample <=0 && st->nb_index_entries && sc->keyframe_count <= 1) {
+        sample = av_index_search_timestamp(st, timestamp, AVSEEK_FLAG_ANY);
+        st->keyframe_count = sc->keyframe_count;
+    }
+#else
     sample = av_index_search_timestamp(st, timestamp, flags);
+#endif
     av_log(s, AV_LOG_TRACE, "stream %d, timestamp %"PRId64", sample %d\n", st->index, timestamp, sample);
     if (sample < 0 && st->nb_index_entries && timestamp < st->index_entries[0].timestamp)
         sample = 0;

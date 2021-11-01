@@ -2425,6 +2425,9 @@ static int decode_vol_header(Mpeg4DecContext *ctx, GetBitContext *gb)
             ctx->vol_sprite_usage = get_bits1(gb);    /* vol_sprite_usage */
         else
             ctx->vol_sprite_usage = get_bits(gb, 2);  /* vol_sprite_usage */
+#ifdef AMFFMPEG
+        s->avctx->mpeg4_vol_sprite = ctx->vol_sprite_usage;
+#endif
 
         if (ctx->vol_sprite_usage == STATIC_SPRITE)
             av_log(s->avctx, AV_LOG_ERROR, "Static Sprites not supported\n");
@@ -2441,6 +2444,9 @@ static int decode_vol_header(Mpeg4DecContext *ctx, GetBitContext *gb)
                 check_marker(s->avctx, gb, "after sprite_top");
             }
             ctx->num_sprite_warping_points = get_bits(gb, 6);
+#ifdef AMFFMPEG
+            s->avctx->mpeg4_vol_sprite |= ctx->num_sprite_warping_points << 8;
+#endif
             if (ctx->num_sprite_warping_points > 3) {
                 av_log(s->avctx, AV_LOG_ERROR,
                        "%d sprite_warping_points\n",
@@ -2449,6 +2455,9 @@ static int decode_vol_header(Mpeg4DecContext *ctx, GetBitContext *gb)
                 return AVERROR_INVALIDDATA;
             }
             s->sprite_warping_accuracy  = get_bits(gb, 2);
+#ifdef AMFFMPEG
+            s->avctx->mpeg4_vol_sprite |= s->sprite_warping_accuracy << 16;
+#endif
             ctx->sprite_brightness_change = get_bits1(gb);
             if (ctx->vol_sprite_usage == STATIC_SPRITE)
                 skip_bits1(gb); // low_latency_sprite
@@ -2537,6 +2546,9 @@ static int decode_vol_header(Mpeg4DecContext *ctx, GetBitContext *gb)
             s->quarter_sample = get_bits1(gb);
         else
             s->quarter_sample = 0;
+#ifdef AMFFMPEG
+        s->avctx->mpeg4_quater_sample = s->quarter_sample;
+#endif
 
         if (get_bits_left(gb) < 4) {
             av_log(s->avctx, AV_LOG_ERROR, "VOL Header truncated\n");

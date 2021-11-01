@@ -229,6 +229,13 @@ typedef struct MatroskaTrackAudio {
     uint8_t *buf;
 } MatroskaTrackAudio;
 
+#ifdef AMFFMPEG
+typedef struct BlockAdditionMapping {
+    uint64_t block_add_id_value;
+    EbmlBin  block_add_id_extradata;
+} BlockAdditionMapping;
+#endif
+
 typedef struct MatroskaTrackPlane {
     uint64_t uid;
     uint64_t type;
@@ -259,6 +266,9 @@ typedef struct MatroskaTrack {
     MatroskaTrackVideo video;
     MatroskaTrackAudio audio;
     MatroskaTrackOperation operation;
+#ifdef AMFFMPEG
+    BlockAdditionMapping blockadditionmapping;
+#endif
     EbmlList encodings;
     uint64_t codec_delay;
     uint64_t codec_delay_in_track_tb;
@@ -551,6 +561,14 @@ static EbmlSyntax matroska_track_encodings[] = {
     CHILD_OF(matroska_track)
 };
 
+#ifdef AMFFMPEG
+static EbmlSyntax matroska_block_addition_mapping[] = {
+    { MATROSKA_ID_BLOCKADDIDTYPE, EBML_UINT, 0, 0, offsetof(BlockAdditionMapping,block_add_id_value)  },
+    { MATROSKA_ID_BLOCKADDIDEXTRADATA, EBML_BIN, 0, 0, offsetof(BlockAdditionMapping,block_add_id_extradata) },
+    { 0 }
+};
+#endif
+
 static EbmlSyntax matroska_track_plane[] = {
     { MATROSKA_ID_TRACKPLANEUID,  EBML_UINT, 0, 0, offsetof(MatroskaTrackPlane,uid) },
     { MATROSKA_ID_TRACKPLANETYPE, EBML_UINT, 0, 0, offsetof(MatroskaTrackPlane,type) },
@@ -599,6 +617,9 @@ static EbmlSyntax matroska_track[] = {
     { MATROSKA_ID_CODECDOWNLOADURL,      EBML_NONE },
     { MATROSKA_ID_TRACKMINCACHE,         EBML_NONE },
     { MATROSKA_ID_TRACKMAXCACHE,         EBML_NONE },
+#ifdef AMFFMPEG
+    { MATROSKA_ID_BLOCKADDITIONMAPPING,  EBML_NEST,  0, 0, offsetof(MatroskaTrack,blockadditionmapping), { .n = matroska_block_addition_mapping } },
+#endif
     CHILD_OF(matroska_tracks)
 };
 
@@ -2333,6 +2354,37 @@ static int get_qt_codec(MatroskaTrack *track, uint32_t *fourcc, enum AVCodecID *
     return 0;
 }
 
+#ifdef AMFFMPEG
+static void  matroska_parse_dv(AVStream *st,MatroskaTrack *track){
+    st->codec->has_dolby_vision_config_box = 1;
+    uint8_t profile = track->blockadditionmapping.block_add_id_extradata.data[2] >> 1;
+    uint8_t level = ((track->blockadditionmapping.block_add_id_extradata.data[2] & 0x1) << 5) | ((track->blockadditionmapping.block_add_id_extradata.data[3] >> 3) & 0x1f);
+    const uint8_t rpu_present_flag = (track->blockadditionmapping.block_add_id_extradata.data[3] >> 2) & 0x01;
+    const uint8_t el_present_flag = (track->blockadditionmapping.block_add_id_extradata.data[3] >> 1) & 0x01;
+    const uint8_t bl_present_flag = (track->blockadditionmapping.block_add_id_extradata.data[3] & 0x01);
+
+    int32_t bl_compatibility_id = 0;
+    if (track->blockadditionmapping.block_add_id_extradata.size >= 4) {
+        bl_compatibility_id = (int32_t)(track->blockadditionmapping.block_add_id_extradata.data[4] >> 4);
+    }
+    st->codec->has_dolby_vision_config_box = 1;
+    st->codec->dolby_vision_profile = profile;
+    st->codec->dolby_vision_level = level;
+
+    if (rpu_present_flag && el_present_flag && !bl_present_flag) {
+        st->codec->dolby_vision_rpu_assoc = 1;
+    } else {
+        st->codec->dolby_vision_rpu_assoc = 0;
+    }
+
+    if (profile == 8 || profile == 9) {
+        st->codec->dolby_vision_bl_compat_id = bl_compatibility_id;
+     }
+    av_log(NULL, AV_LOG_INFO,"codec_tag=0x%x,has_dolby_vision_config_box=%d,extracdata size=%d",st->codecpar->codec_tag,st->codec->has_dolby_vision_config_box,track->blockadditionmapping.block_add_id_extradata.size);
+
+}
+#endif
+
 static int matroska_parse_tracks(AVFormatContext *s)
 {
     MatroskaDemuxContext *matroska = s->priv_data;
@@ -2782,7 +2834,20 @@ static int matroska_parse_tracks(AVFormatContext *s)
             int display_height_mul = 1;
 
             st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+#ifdef AMFFMPEG
+            if (track->blockadditionmapping.block_add_id_value == MATROSKA_ADD_ID_TYPE_DVVC) {
+                st->codecpar->codec_tag = MKTAG('d', 'v', 'v', 'c');
+                matroska_parse_dv(st,track);
+            }
+            else if (track->blockadditionmapping.block_add_id_value  == MATROSKA_ADD_ID_TYPE_DVCC){
+                st->codecpar->codec_tag = MKTAG('d', 'v', 'c', 'c');
+                matroska_parse_dv(st,track);
+            }
+            else
+                st->codecpar->codec_tag  = fourcc;
+#else
             st->codecpar->codec_tag  = fourcc;
+#endif
             if (bit_depth >= 0)
                 st->codecpar->bits_per_coded_sample = bit_depth;
             st->codecpar->width      = track->video.pixel_width;

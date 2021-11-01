@@ -3128,6 +3128,23 @@ static int decode_nal_unit(HEVCContext *s, const H2645NAL *nal)
     case HEVC_NAL_AUD:
     case HEVC_NAL_FD_NUT:
         break;
+#ifdef AMFFMPEG
+    case HEVC_NAL_SEI_DV_META:
+        /*
+        sample dolbyvision meta nal header:
+        00 00 01 7C 01 19 08
+        nal_type =(0x7C >> 1) 0x3f;
+        */
+        s->avctx->has_dolby_vision_meta = 1;
+        break;
+    case HEVC_NAL_SEI_DV_EL:
+        /*
+        sample dolbyvision el nal header:
+        00 00 01 7E 01
+        nal_type =(0x7E >> 1) 0x3f;
+        */
+        s->avctx->has_dolby_vision_el = 1;
+#endif
     default:
         av_log(s->avctx, AV_LOG_INFO,
                "Skipping NAL unit %d\n", s->nal_unit_type);

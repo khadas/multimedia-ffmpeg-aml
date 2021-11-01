@@ -30,7 +30,6 @@ static const AVOutputFormat * const muxer_list[] = {
     &ff_daud_muxer,
     &ff_dirac_muxer,
     &ff_dnxhd_muxer,
-    &ff_dv_muxer,
     &ff_f4v_muxer,
     &ff_ffmetadata_muxer,
     &ff_fifo_muxer,

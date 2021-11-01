@@ -177,6 +177,19 @@ struct MpegTSContext {
 
     AVStream *epg_stream;
     AVBufferPool* pools[32];
+#ifdef AMFFMPEG
+    int ca_system_id;/*id for dvb ca system*/
+    int video_ecm_pid;/*video pid for encrypted mpegts*/
+    int audio_ecm_pid;/*audio pid for encrypted mpegts*/
+    uint8_t *private_data;/*private data in ca descriptor*/
+
+    int* dvb_audio_preselection_idxs;
+    unsigned int nb_audio_preselection_idxs;
+    unsigned char* dvb_audio_preselection;
+    unsigned int dvb_audio_preselection_length;
+    int page_number;
+    int magazine_number;
+#endif
 };
 
 #define MPEGTS_OPTIONS \
@@ -198,6 +211,20 @@ static const AVOption options[] = {
      {.i64 = 0}, 0, 1, 0 },
     {"skip_clear", "skip clearing programs", offsetof(MpegTSContext, skip_clear), AV_OPT_TYPE_BOOL,
      {.i64 = 0}, 0, 1, 0 },
+#ifdef AMFFMPEG
+    {"ca_system_id", "id for dvb ca system", offsetof(MpegTSContext, ca_system_id), AV_OPT_TYPE_INT,
+     {.i64 = 0}, 0, 0xffff, AV_OPT_FLAG_EXPORT},
+    {"video_ecm_pid", "video pid for encrypted mpegts", offsetof(MpegTSContext, video_ecm_pid), AV_OPT_TYPE_INT,
+     {.i64 = 0}, 0, 0x1fff, AV_OPT_FLAG_EXPORT},
+    {"audio_ecm_pid", "audio pid for encrypted mpegts", offsetof(MpegTSContext, audio_ecm_pid), AV_OPT_TYPE_INT,
+     {.i64 = 0}, 0, 0x1fff, AV_OPT_FLAG_EXPORT},
+    {"private_data", "private data in ca descriptor", offsetof(MpegTSContext, private_data), AV_OPT_TYPE_BINARY,
+     0, 0, AV_OPT_FLAG_EXPORT},
+    {"dvb_audio_preselection", "EXT DESCRIPTOR DVB AUDIO PRESELECTION", offsetof(MpegTSContext, dvb_audio_preselection), AV_OPT_TYPE_BINARY,
+     0, 0, AV_OPT_FLAG_EXPORT},
+    {"dvb_audio_preselection_length", "EXT DESCRIPTOR DVB AUDIO PRESELECTION DATA LENGTH", offsetof(MpegTSContext, dvb_audio_preselection_length), AV_OPT_TYPE_INT,
+     0, 0, AV_OPT_FLAG_EXPORT},
+#endif
     { NULL },
 };
 
@@ -846,12 +873,20 @@ static const StreamType REGD_types[] = {
     { MKTAG('D', 'T', 'S', '1'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_DTS   },
     { MKTAG('D', 'T', 'S', '2'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_DTS   },
     { MKTAG('D', 'T', 'S', '3'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_DTS   },
+#ifdef AMFFMPEG
+    { MKTAG('D', 'T', 'S', 'H'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_DTS   },
+#endif
     { MKTAG('E', 'A', 'C', '3'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_EAC3  },
     { MKTAG('H', 'E', 'V', 'C'), AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_HEVC  },
     { MKTAG('K', 'L', 'V', 'A'), AVMEDIA_TYPE_DATA,  AV_CODEC_ID_SMPTE_KLV },
     { MKTAG('I', 'D', '3', ' '), AVMEDIA_TYPE_DATA,  AV_CODEC_ID_TIMED_ID3 },
     { MKTAG('V', 'C', '-', '1'), AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_VC1   },
     { MKTAG('O', 'p', 'u', 's'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_OPUS  },
+#ifdef AMFFMPEG
+    { MKTAG('D', 'R', 'A', '1'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_DRA   },
+    { MKTAG('d', 'v', 'h', 'e'), AVMEDIA_TYPE_VIDEO , AV_CODEC_ID_HEVC}, /* HEVC Dobly vision  ES  dvhe*/
+    { MKTAG('D', 'O', 'V', 'I'), AVMEDIA_TYPE_VIDEO , AV_CODEC_ID_HEVC}, /* HEVC Dobly vision  ES  dovi*/
+#endif
     { 0 },
 };
 
@@ -945,6 +980,53 @@ static int mpegts_set_stream_info(AVStream *st, PESContext *pes,
             sub_st->need_parsing      = AVSTREAM_PARSE_FULL;
             sub_pes->sub_st           = pes->sub_st = sub_st;
         }
+#ifdef AMFFMPEG
+        if (pes->stream_type == 0x81) {
+            // HDMV AC3 streams also contain an TRUEHD coded version of the
+            // audio track - add a second stream for this
+            AVStream *sub_st;
+            // priv_data cannot be shared between streams
+            PESContext *sub_pes = av_malloc(sizeof(*sub_pes));
+            if (!sub_pes)
+                    return AVERROR(ENOMEM);
+            memcpy(sub_pes, pes, sizeof(*sub_pes));
+
+            sub_st = avformat_new_stream(pes->stream, NULL);
+            if (!sub_st) {
+                    av_free(sub_pes);
+                    return AVERROR(ENOMEM);
+            }
+
+            sub_st->id = pes->pid;
+            avpriv_set_pts_info(sub_st, 33, 1, 90000);
+            sub_st->priv_data = sub_pes;
+            sub_st->codec->codec_type = AVMEDIA_TYPE_AUDIO;
+            sub_st->codec->codec_id   = AV_CODEC_ID_TRUEHD;
+            sub_st->need_parsing = AVSTREAM_PARSE_FULL;
+            sub_st->discard = AVDISCARD_ALL;
+            sub_pes->sub_st = pes->sub_st = sub_st;
+        }
+    }
+    if (st->codec->codec_id == AV_CODEC_ID_NONE && pes->stream_type == 0x82) {
+        AVStream *sub_st;
+        PESContext *sub_pes = av_malloc(sizeof(*sub_pes));
+        if (!sub_pes)
+                return AVERROR(ENOMEM);
+        memcpy(sub_pes, pes, sizeof(*sub_pes));
+        sub_st = avformat_new_stream(pes->stream, NULL);
+        if (!sub_st) {
+                av_free(sub_pes);
+                return AVERROR(ENOMEM);
+        }
+
+        sub_st->id = pes->pid;
+        avpriv_set_pts_info(sub_st, 33, 1, 90000);
+        sub_st->priv_data = sub_pes;
+        sub_st->codec->codec_type = AVMEDIA_TYPE_AUDIO;
+        sub_st->codec->codec_id   = AV_CODEC_ID_DTS;
+        sub_st->need_parsing = AVSTREAM_PARSE_FULL;
+        sub_pes->sub_st = pes->sub_st = sub_st;
+#endif
     }
     if (st->codecpar->codec_id == AV_CODEC_ID_NONE)
         mpegts_find_stream_type(st, pes->stream_type, MISC_types);
@@ -1006,6 +1088,10 @@ static int new_pes_packet(PESContext *pes, AVPacket *pkt)
 
     // Separate out the AC3 substream from an HDMV combined TrueHD/AC3 PID
     if (pes->sub_st && pes->stream_type == 0x83 && pes->extended_stream_id == 0x76)
+#ifdef AMFFMPEG
+        pkt->stream_index = pes->sub_st->index;
+    else if (pes->sub_st && pes->stream_type == 0x81 && pes->extended_stream_id == 0x72)
+#endif
         pkt->stream_index = pes->sub_st->index;
     else
         pkt->stream_index = pes->st->index;
@@ -1778,6 +1864,65 @@ static const uint8_t opus_channel_map[8][8] = {
     { 0,6,1,2,3,4,5,7 },
 };
 
+#ifdef AMFFMPEG
+typedef struct dvbpsi_teletextpage_s
+{
+  uint8_t      i_iso6392_language_code[3];  /* 24 bits */
+  uint8_t      i_teletext_type;             /*  5 bits */
+  uint8_t      i_teletext_magazine_number;  /*  3 bits */
+  uint8_t      i_teletext_page_number;      /*  8 bits */
+
+} dvbpsi_teletextpage_t;
+
+typedef struct dvbpsi_teletext_dr_s
+{
+  uint8_t      i_pages_number;
+  dvbpsi_teletextpage_t p_pages[64];
+
+} dvbpsi_teletext_dr_t;
+
+static int mpegts_add_dvb_audio_preselection(MpegTSContext *ts,AVStream *st,unsigned char *data, int len) {
+    if (data == NULL || ts == NULL || st == NULL)
+        return -1;
+    int stream_index = st->index;
+    char stream_index_[4] = {0}, len_[4] = {0};
+    stream_index_[0] = (stream_index>>24)&0xff;
+    stream_index_[1] = (stream_index>>16)&0xff;
+    stream_index_[2] = (stream_index>>8)&0xff;
+    stream_index_[3] = (stream_index)&0xff;
+    len_[0] = (len>>24)&0xff;
+    len_[1] = (len>>16)&0xff;
+    len_[2] = (len>>8)&0xff;
+    len_[3] = (len)&0xff;
+    unsigned char is_exist = 0;
+    for (int i=0; i<ts->nb_audio_preselection_idxs; i++) {
+        if (stream_index == ts->dvb_audio_preselection_idxs[i])
+            is_exist = 1;
+    }
+    if (is_exist)
+        return 0;
+    av_log(NULL,AV_LOG_ERROR,"[%s], stream_index:%d, len:%d, %x %x %x %x %x %x %x %x",__FUNCTION__,stream_index,len
+                    ,stream_index_[0],stream_index_[1],stream_index_[2],stream_index_[3]
+                    ,len_[0],len_[1],len_[2],len_[3]);
+    int new_len = len + ts->dvb_audio_preselection_length;
+    ts->dvb_audio_preselection = av_realloc(ts->dvb_audio_preselection, new_len);
+    ts->dvb_audio_preselection_idxs = (unsigned int *)av_realloc((void*)ts->dvb_audio_preselection_idxs, (ts->nb_audio_preselection_idxs+1)*sizeof(int));
+    memcpy(ts->dvb_audio_preselection+ts->dvb_audio_preselection_length,
+            stream_index_, sizeof(int));//stream index
+    ts->dvb_audio_preselection_length += sizeof(int);
+    memcpy(ts->dvb_audio_preselection+ts->dvb_audio_preselection_length,
+            len_, sizeof(int));//real data len
+    ts->dvb_audio_preselection_length += sizeof(int);
+    memcpy(ts->dvb_audio_preselection+ts->dvb_audio_preselection_length,
+            data, len);//data
+    ts->dvb_audio_preselection_length += len;
+    ts->dvb_audio_preselection_idxs[ts->nb_audio_preselection_idxs] = stream_index;
+    ts->nb_audio_preselection_idxs++;
+    av_log(NULL,AV_LOG_ERROR,"[%s], dvb_audio_preselection_length:%d",__FUNCTION__,ts->dvb_audio_preselection_length);
+    return 0;
+}
+#endif
+
 int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type,
                               const uint8_t **pp, const uint8_t *desc_list_end,
                               Mp4Descr *mp4_descr, int mp4_descr_count, int pid,
@@ -1785,6 +1930,9 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
 {
     const uint8_t *desc_end;
     int desc_len, desc_tag, desc_es_id, ext_desc_tag, channels, channel_config_code;
+#ifdef AMFFMPEG
+    int ecm_pid;
+#endif
     char language[252];
     int i;
 
@@ -1858,6 +2006,15 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
         {
             uint8_t *extradata = NULL;
             int language_count = desc_len / 5, ret;
+#ifdef AMFFMPEG
+            uint8_t tmp_extradata;
+            char teletext_info[252] = {0};
+            char pages_number_info[5] = {0};
+            int pages_number = desc_len / 5;
+            dvbpsi_teletext_dr_t * p_decoded;
+            p_decoded = (dvbpsi_teletext_dr_t*)malloc(sizeof(dvbpsi_teletext_dr_t));
+            av_log(fc, AV_LOG_ERROR, "0x56 language_count:%d\n", language_count);
+#endif
 
             if (desc_len > 0 && desc_len % 5 != 0)
                 return AVERROR_INVALIDDATA;
@@ -1884,13 +2041,35 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                     language[i * 4 + 3] = ',';
 
                     memcpy(extradata, *pp, 2);
+#ifdef AMFFMPEG
+                    /*get teletext info*/
+                    tmp_extradata = (uint8_t)get8(pp, desc_end);
+                    p_decoded->p_pages[i].i_teletext_type = tmp_extradata >> 3;
+                    p_decoded->p_pages[i].i_teletext_magazine_number = tmp_extradata & 0x07;
+                    p_decoded->p_pages[i].i_teletext_page_number = (uint8_t)get8(pp, desc_end);
+                    av_log(fc, AV_LOG_ERROR, "0x56 i:%d pages_number:%d, type:0x%x, magazine:0x%x, pagenum:0x%x\n",
+                          i, pages_number, p_decoded->p_pages[i].i_teletext_type, p_decoded->p_pages[i].i_teletext_magazine_number, p_decoded->p_pages[i].i_teletext_page_number);
+
+                    sprintf(teletext_info + (i * strlen(teletext_info)), "%d,%d,%d#",
+                          p_decoded->p_pages[i].i_teletext_type, p_decoded->p_pages[i].i_teletext_magazine_number, p_decoded->p_pages[i].i_teletext_page_number);
+                    /*av_dict_set(&st->metadata, "teletext-type", p_decoded->p_pages[i].i_teletext_type, 0);
+                      av_dict_set(&st->metadata, "page-num", p_decoded->p_pages[i].i_teletext_magazine_number, 0);
+                      av_dict_set(&st->metadata, "magazine-num", p_decoded->p_pages[i].i_teletext_page_number, 0);*/
+#else
                     extradata += 2;
+#endif
 
                     *pp += 2;
                 }
 
                 language[i * 4 - 1] = 0;
                 av_dict_set(&st->metadata, "language", language, 0);
+#ifdef AMFFMPEG
+                av_dict_set(&st->metadata, "teletext-info", teletext_info, 0);
+                sprintf(pages_number_info, "%d", language_count);
+                av_dict_set_int(&st->metadata, "langcount", language_count, 0);
+                av_log(fc, AV_LOG_ERROR, "language:%s  teletext-info:%s language_count:%d\n", language, teletext_info, language_count);
+#endif
                 st->internal->need_context_update = 1;
             }
         }
@@ -2010,6 +2189,16 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
         ext_desc_tag = get8(pp, desc_end);
         if (ext_desc_tag < 0)
             return AVERROR_INVALIDDATA;
+#ifdef AMFFMPEG
+        if (ext_desc_tag == 0x15) {
+            st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+            st->codecpar->codec_id = AV_CODEC_ID_AC4;
+            st->codecpar->codec_tag = MKTAG('a', 'c', '-', '4');
+        } else if (ext_desc_tag == 0x19) {
+            // EXT_DESCRIPTOR_DVB_AUDIO_PRESELECTION
+            mpegts_add_dvb_audio_preselection(ts,st,*pp,desc_end-*pp);
+        } else
+#endif
         if (st->codecpar->codec_id == AV_CODEC_ID_OPUS &&
             ext_desc_tag == 0x80) { /* User defined (provisional Opus) */
             if (!st->codecpar->extradata) {
@@ -2149,6 +2338,54 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
         }
         break;
     case 0xb0: /* DOVI video stream descriptor */
+#ifdef AMFFMPEG
+        if (desc_len > 0 && desc_len < 4)
+            return AVERROR_INVALIDDATA;
+
+        uint8_t dv_version_major  = get8(pp, desc_end);
+        uint8_t dv_version_minor  = get8(pp, desc_end);
+        if (dv_version_major != 1 || dv_version_minor != 0)
+            return AVERROR_INVALIDDATA;
+        uint8_t data2 = get8(pp, desc_end);
+        uint8_t data3 = get8(pp, desc_end);
+        uint8_t profile = data2 >> 1;
+        // profile == (0, 1, 9) --> AVC; profile = (2,3,4,5,6,7,8) --> HEVC;
+        if (profile > 9) {
+            av_log(fc, AV_LOG_ERROR, "profile error:%x\n", profile);
+            *pp = desc_end;
+            return 0;
+        }
+
+        uint8_t level = ((data2 & 0x1) << 5) | ((data3 >> 3) & 0x1f);
+        const uint8_t rpu_present_flag = (data3 >> 2) & 0x01;
+        const uint8_t el_present_flag = (data3 >> 1) & 0x01;
+        const uint8_t bl_present_flag = (data3 & 0x01);
+
+        int32_t bl_compatibility_id = 0;
+#ifdef AMFFMPEG
+        if (desc_len >= 4) {
+#else
+        if (desc_len == 4) {
+#endif
+            uint8_t data4 = get8(pp, desc_end);
+            bl_compatibility_id = (int32_t)(data4 >> 4);
+        }
+
+        av_log(fc, AV_LOG_INFO, "profile:%d,level:%d bl_compatibility_id:%d\n", profile, level, bl_compatibility_id);
+
+        st->codec->has_dolby_vision_config_box = 1;
+        st->codec->dolby_vision_profile = profile;
+        st->codec->dolby_vision_level = level;
+        if (rpu_present_flag && el_present_flag && !bl_present_flag) {
+            st->codec->dolby_vision_rpu_assoc = 1;
+        } else {
+            st->codec->dolby_vision_rpu_assoc = 0;
+        }
+
+        if (profile == 8 || profile == 9) {
+            st->codec->dolby_vision_bl_compat_id = bl_compatibility_id;
+        }
+#else
         {
             uint32_t buf;
             AVDOVIDecoderConfigurationRecord *dovi;
@@ -2194,7 +2431,36 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                    dovi->bl_present_flag,
                    dovi->dv_bl_signal_compatibility_id);
         }
+#endif
         break;
+#ifdef AMFFMPEG
+    case 0x09: /* CAS descriptor */
+        ts->ca_system_id = get16(pp, desc_end);
+        if (av_opt_set_int(ts, "ca_system_id", ts->ca_system_id, 0) != 0)
+            av_log(ts->stream, AV_LOG_WARNING, "set cas id error!\n");
+        av_log(fc, AV_LOG_TRACE, "ca_system_id:0x%llx\n", ts->ca_system_id);
+
+        ecm_pid = get16(pp, desc_end) & 0x1fff;
+        desc_len -= 4;
+        if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            ts->video_ecm_pid = ecm_pid;
+            if (av_opt_set_int(ts, "video_ecm_pid", ts->video_ecm_pid, 0) != 0)
+                av_log(ts->stream, AV_LOG_WARNING, "set video ecm pid error!\n");
+        } else if (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            ts->audio_ecm_pid = ecm_pid;
+            if (av_opt_set_int(ts, "audio_ecm_pid", ts->audio_ecm_pid, 0) != 0)
+                av_log(ts->stream, AV_LOG_WARNING, "set audio ecm pid error!\n");
+        }
+
+        if (desc_len > 0) {
+            ts->private_data = av_malloc(desc_len);
+            memcpy(ts->private_data, *pp, desc_len);
+            if (av_opt_set_bin(ts, "private_data", ts->private_data, desc_len, 0) != 0)
+                av_log(ts->stream, AV_LOG_WARNING, "set private data error!\n");
+        }
+
+        break;
+#endif
     default:
         break;
     }
@@ -2289,6 +2555,11 @@ static void pmt_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
     int mp4_descr_count = 0;
     Mp4Descr mp4_descr[MAX_MP4_DESCR_COUNT] = { { 0 } };
     int i;
+#ifdef AMFFMPEG
+    ts->private_data = NULL;
+    ts->video_ecm_pid = 0x1fff;/*default invalid value*/
+    ts->audio_ecm_pid = 0x1fff;/*default invalid value*/
+#endif
 
     av_log(ts->stream, AV_LOG_TRACE, "PMT: len %i\n", section_len);
     hex_dump_debug(ts->stream, section, section_len);
@@ -2338,6 +2609,9 @@ static void pmt_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
     program_info_length &= 0xfff;
     while (program_info_length >= 2) {
         uint8_t tag, len;
+#ifdef AMFFMPEG
+        int ecm_pid;
+#endif
         tag = get8(&p, p_end);
         len = get8(&p, p_end);
 
@@ -2356,6 +2630,29 @@ static void pmt_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
         } else if (tag == REGISTRATION_DESCRIPTOR && len >= 4) {
             prog_reg_desc = bytestream_get_le32(&p);
             len -= 4;
+#ifdef AMFFMPEG
+        } else if (tag == 0x09) {
+            ts->ca_system_id = get16(&p, p_end); //ca_system_id
+            ecm_pid = get16(&p, p_end) & 0x1fff;//ecm_pid
+            len -= 4;
+            if (av_opt_set_int(ts, "ca_system_id", ts->ca_system_id, 0) != 0)
+                av_log(ts->stream, AV_LOG_WARNING, "set cas id error!\n");
+            if (ts->video_ecm_pid == 0x1fff) {
+                ts->video_ecm_pid = ecm_pid;
+                if (av_opt_set_int(ts, "video_ecm_pid", ts->video_ecm_pid, 0) != 0)
+                    av_log(ts->stream, AV_LOG_WARNING, "set video ecm pid error!\n");
+            } else if (ts->audio_ecm_pid == 0x1fff && ts->video_ecm_pid != 0x1fff) {
+                ts->audio_ecm_pid = ecm_pid;
+                if (av_opt_set_int(ts, "audio_ecm_pid", ts->audio_ecm_pid, 0) != 0)
+                    av_log(ts->stream, AV_LOG_WARNING, "set audio ecm pid error!\n");
+            }
+            if (len > 0) {
+                ts->private_data = av_malloc(len);
+                memcpy(ts->private_data, p, len);
+                if (av_opt_set_bin(ts, "private_data", ts->private_data, len, 0) != 0)
+                    av_log(ts->stream, AV_LOG_WARNING, "set private data error!\n");
+            }
+#endif
         }
         p += len;
     }
@@ -2471,7 +2768,11 @@ static void pmt_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
                 break;
 
             if (pes && prog_reg_desc == AV_RL32("HDMV") &&
+#ifdef AMFFMPEG
+                (stream_type == 0x83 || stream_type == 0x81) && pes->sub_st) {
+#else
                 stream_type == 0x83 && pes->sub_st) {
+#endif
                 av_program_add_stream_index(ts->stream, h->id,
                                             pes->sub_st->index);
                 pes->sub_st->codecpar->codec_tag = st->codecpar->codec_tag;
@@ -3051,6 +3352,65 @@ static int parse_pcr(int64_t *ppcr_high, int *ppcr_low, const uint8_t *packet)
     return 0;
 }
 
+#ifdef AMFFMPEG
+static void check_ac3_dts(AVFormatContext * s)
+{
+
+    MpegTSContext *ts = s->priv_data;
+    int s_index;
+    const uint8_t *data;
+    uint8_t packet[TS_PACKET_SIZE];
+    for (s_index = 0; s_index < s->nb_streams; s_index++) {
+        int codec_id = s->streams[s_index]->codecpar->codec_id;
+        int c_pid = s->streams[s_index]->id;
+        if (codec_id == AV_CODEC_ID_AC3) {
+            int packet_num, ret;
+            int pes_header_pos, es_header_pos;
+            packet_num = 0;
+            for (;;) {
+                packet_num++;
+                if (packet_num >= 180000) {
+                    break;
+                }
+                ret = read_packet(s, packet, ts->raw_packet_size,&data);
+                if (ret != 0) {
+                    return;
+                }
+                if ((c_pid != (AV_RB16(data + 1) & 0x1fff)) && (1 != (data[1] & 0x40))) {  //pid equal and must have pes/es header
+                    continue;
+                }
+                //seek to the pes header
+                for (pes_header_pos = 0; pes_header_pos < ts->raw_packet_size - 3; pes_header_pos++) {
+                    if (data[pes_header_pos] == 0x00 && data[pes_header_pos + 1] == 0x00 && data[pes_header_pos + 2] == 0x01) {
+                        break;
+                    }
+                }
+                if (pes_header_pos == ts->raw_packet_size - 3) {
+                    continue;
+                }
+                //we found the pes header and parse
+                es_header_pos = data[pes_header_pos + 8] + 9 + pes_header_pos; //pes header size
+                if (data[es_header_pos] == 0x1F && data[es_header_pos + 1] == 0xFF && data[es_header_pos + 2] == 0xE8 && data[es_header_pos] == 0x00) {
+                    s->streams[s_index]->codecpar->codec_id = AV_CODEC_ID_DTS;
+                }
+                if (data[es_header_pos] == 0xFF && data[es_header_pos + 1] == 0x1F && data[es_header_pos + 2] == 0x00 && data[es_header_pos + 3] == 0xE8) {
+                    s->streams[s_index]->codecpar->codec_id = AV_CODEC_ID_DTS;
+                }
+                if (data[es_header_pos] == 0x7F && data[es_header_pos + 1] == 0xFE && data[es_header_pos + 2] == 0x80 && data[es_header_pos + 3] == 0x01) {
+                    s->streams[s_index]->codecpar->codec_id = AV_CODEC_ID_DTS;
+                }
+                if (data[es_header_pos] == 0xFE && data[es_header_pos + 1] == 0x7F && data[es_header_pos + 2] == 0x01 && data[es_header_pos + 3] == 0x80) {
+                    s->streams[s_index]->codecpar->codec_id = AV_CODEC_ID_DTS;
+                }
+
+                break;
+            }
+
+        }
+    }
+}
+#endif
+
 static void seek_back(AVFormatContext *s, AVIOContext *pb, int64_t pos) {
 
     /* NOTE: We attempt to seek on non-seekable files as well, as the
@@ -3068,7 +3428,12 @@ static int mpegts_read_header(AVFormatContext *s)
     int64_t seekback = FFMAX(s->probesize, (int64_t)ts->resync_size + PROBE_PACKET_MAX_BUF);
 
     s->internal->prefer_codec_framerate = 1;
-
+#ifdef AMFFMPEG
+    ts->dvb_audio_preselection = NULL;
+    ts->dvb_audio_preselection_length = 0;
+    ts->nb_audio_preselection_idxs = 0;
+    ts->dvb_audio_preselection_idxs = NULL;
+#endif
     if (ffio_ensure_seekback(pb, seekback) < 0)
         av_log(s, AV_LOG_WARNING, "Failed to allocate buffers for seekback\n");
 
@@ -3156,7 +3521,9 @@ static int mpegts_read_header(AVFormatContext *s)
         av_log(ts->stream, AV_LOG_TRACE, "start=%0.3f pcr=%0.3f incr=%"PRId64"\n",
                 st->start_time / 1000000.0, pcrs[0] / 27e6, ts->pcr_incr);
     }
-
+#ifdef AMFFMPEG
+    check_ac3_dts(s);
+#endif
     seek_back(s, pb, pos);
     return 0;
 }
@@ -3245,6 +3612,22 @@ static void mpegts_free(MpegTSContext *ts)
     int i;
 
     clear_programs(ts);
+#ifdef AMFFMPEG
+    if (ts->dvb_audio_preselection) {
+        av_free(ts->dvb_audio_preselection);
+        ts->dvb_audio_preselection = NULL;
+        ts->dvb_audio_preselection_length = 0;
+    }
+    if (ts->dvb_audio_preselection_idxs) {
+        av_free(ts->dvb_audio_preselection_idxs);
+        ts->dvb_audio_preselection_idxs = NULL;
+        ts->nb_audio_preselection_idxs = 0;
+    }
+    if (ts->private_data != NULL) {
+        av_free(ts->private_data);
+        ts->private_data = NULL;
+    }
+#endif
 
     for (i = 0; i < FF_ARRAY_ELEMS(ts->pools); i++)
         av_buffer_pool_uninit(&ts->pools[i]);

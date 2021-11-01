@@ -1,6 +1,7 @@
 LOCAL_PATH := $(call my-dir)
 
 FFMPEG_CFLAGS := \
+    -DAMFFMPEG \
     -DHAVE_AV_CONFIG_H \
     -I$(LOCAL_PATH) \
     -Wno-error=return-type \

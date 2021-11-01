@@ -336,7 +336,9 @@ typedef struct AVIOContext {
      * This is current internal only, do not use from outside.
      */
     int (*short_seek_get)(void *opaque);
-
+#ifdef AMFFMPEG
+    int mediascan_flag;
+#endif
     int64_t written;
 
     /**

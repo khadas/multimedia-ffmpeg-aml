@@ -90,6 +90,10 @@ enum HEVCNALUnitType {
     HEVC_NAL_UNSPEC61       = 61,
     HEVC_NAL_UNSPEC62       = 62,
     HEVC_NAL_UNSPEC63       = 63,
+#ifdef AMFFMPEG
+    HEVC_NAL_SEI_DV_META    = 64,
+    HEVC_NAL_SEI_DV_EL      = 65,
+#endif
 };
 
 enum HEVCSliceType {

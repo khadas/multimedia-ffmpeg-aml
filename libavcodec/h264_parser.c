@@ -332,6 +332,22 @@ static inline int parse_nal_units(AVCodecParserContext *s,
         case H264_NAL_SEI:
             ff_h264_sei_decode(&p->sei, &nal.gb, &p->ps, avctx);
             break;
+#ifdef AMFFMPEG
+        case H264_NAL_264_DV_META:
+            /*00 00 00 01 7c 01 19  08
+            nal type = 0x7c & 0x1f;
+            any conflict?
+            */
+            avctx->has_dolby_vision_meta = 1;
+            break;
+        case H264_NAL_264_DV_EL:
+            /*00 00 00 01 7e
+            nal type = 0x7e & 0x1f;
+            any conflict?
+            */
+            avctx->has_dolby_vision_el = 1;
+            break;
+#endif
         case H264_NAL_IDR_SLICE:
             s->key_frame = 1;
 

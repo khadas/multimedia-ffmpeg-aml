@@ -192,6 +192,10 @@ static int mpegvideo_parse(AVCodecParserContext *s,
     if(s->flags & PARSER_FLAG_COMPLETE_FRAMES){
         next= buf_size;
     }else{
+#ifdef AMFFMPEG
+        if (s->flags & PARSER_FLAG_HAS_ES_META)
+            mpegvideo_extract_headers(s, avctx, buf, buf_size);
+#endif
         next= ff_mpeg1_find_frame_end(pc, buf, buf_size, s);
 
         if (ff_combine_frame(pc, next, &buf, &buf_size) < 0) {

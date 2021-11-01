@@ -1092,6 +1092,9 @@ typedef struct AVStream {
     AVIndexEntry *index_entries; /**< Only used if the format does not
                                     support seeking natively. */
     int nb_index_entries;
+#ifdef AMFFMPEG
+    int keyframe_count;
+#endif
     unsigned int index_entries_allocated_size;
 
     /**
@@ -1862,6 +1865,10 @@ typedef struct AVFormatContext {
      * - decoding: set by user
      */
     int max_probe_packets;
+#ifdef AMFFMPEG
+    uint8_t *pssh_info;
+    int pssh_len;
+#endif
 } AVFormatContext;
 
 #if FF_API_FORMAT_GET_SET
@@ -2418,6 +2425,10 @@ void avformat_close_input(AVFormatContext **s);
 #define AVSEEK_FLAG_BYTE     2 ///< seeking based on position in bytes
 #define AVSEEK_FLAG_ANY      4 ///< seek to any frame, even non-keyframes
 #define AVSEEK_FLAG_FRAME    8 ///< seeking based on frame number
+#ifdef AMFFMPEG
+#define AVSEEK_FLAG_CLOSEST_SYNC   16 ///< seeking to closeset keyframes
+#define AVSEEK_FLAG_FRAME_INDEX    32 ///< seeking to frame index
+#endif
 
 /**
  * @addtogroup lavf_encoding

@@ -96,7 +96,9 @@ const AVCodecTag ff_codec_movvideo_tags[] = {
     { AV_CODEC_ID_DVVIDEO, MKTAG('A', 'V', 'd', '1') }, /* AVID DV100 */
     { AV_CODEC_ID_DVVIDEO, MKTAG('d', 'v', 'h', 'q') }, /* DVCPRO HD 720p50 */
     { AV_CODEC_ID_DVVIDEO, MKTAG('d', 'v', 'h', 'p') }, /* DVCPRO HD 720p60 */
+#ifndef AMFFMPEG
     { AV_CODEC_ID_DVVIDEO, MKTAG('d', 'v', 'h', '1') },
+#endif
     { AV_CODEC_ID_DVVIDEO, MKTAG('d', 'v', 'h', '2') },
     { AV_CODEC_ID_DVVIDEO, MKTAG('d', 'v', 'h', '4') },
     { AV_CODEC_ID_DVVIDEO, MKTAG('d', 'v', 'h', '5') }, /* DVCPRO HD 50i produced by FCP */
@@ -119,6 +121,10 @@ const AVCodecTag ff_codec_movvideo_tags[] = {
     { AV_CODEC_ID_HEVC, MKTAG('h', 'e', 'v', '1') }, /* HEVC/H.265 which indicates parameter sets may be in ES */
     { AV_CODEC_ID_HEVC, MKTAG('h', 'v', 'c', '1') }, /* HEVC/H.265 which indicates parameter sets shall not be in ES */
     { AV_CODEC_ID_HEVC, MKTAG('d', 'v', 'h', 'e') }, /* HEVC-based Dolby Vision derived from hev1 */
+#ifdef AMFFMPEG
+    { AV_CODEC_ID_HEVC, MKTAG('d', 'v', 'h', '1') }, /* HEVC Dobly vision  ES  dvh1*/
+    { AV_CODEC_ID_HEVC, MKTAG('D', 'O', 'V', 'I') }, /* HEVC Dobly vision  ES  dovi*/
+#endif
                                                      /* dvh1 is handled within mov.c */
 
     { AV_CODEC_ID_H264, MKTAG('a', 'v', 'c', '1') }, /* AVC-1/H.264 */
@@ -148,7 +154,9 @@ const AVCodecTag ff_codec_movvideo_tags[] = {
     { AV_CODEC_ID_VP8,  MKTAG('v', 'p', '0', '8') }, /* VP8 */
     { AV_CODEC_ID_VP9,  MKTAG('v', 'p', '0', '9') }, /* VP9 */
     { AV_CODEC_ID_AV1,  MKTAG('a', 'v', '0', '1') }, /* AV1 */
-
+#ifdef AMFFMPEG
+    { AV_CODEC_ID_AV1,  MKTAG('d', 'a', 'v', '1') },
+#endif
     { AV_CODEC_ID_MPEG1VIDEO, MKTAG('m', '1', 'v', ' ') },
     { AV_CODEC_ID_MPEG1VIDEO, MKTAG('m', '1', 'v', '1') }, /* Apple MPEG-1 Camcorder */
     { AV_CODEC_ID_MPEG1VIDEO, MKTAG('m', 'p', 'e', 'g') }, /* MPEG */

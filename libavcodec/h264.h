@@ -63,6 +63,11 @@ enum {
     H264_NAL_UNSPECIFIED29   = 29,
     H264_NAL_UNSPECIFIED30   = 30,
     H264_NAL_UNSPECIFIED31   = 31,
+#ifdef AMFFMPEG
+    H264_NAL_SLC_EXT         = 32,
+    H264_NAL_264_DV_META          = 0x1c, /*0x7c & 0x1f*/
+    H264_NAL_264_DV_EL          = 0x1e, /*0x7E & 0x1f*/
+#endif
 };
 
 

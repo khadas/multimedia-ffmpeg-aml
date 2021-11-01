@@ -35,7 +35,11 @@ int ff_flv_decode_picture_header(MpegEncContext *s)
         return AVERROR_INVALIDDATA;
     }
     format = get_bits(&s->gb, 5);
+#ifdef AMFFMPEG
+    if (format != 1) {
+#else
     if (format != 0 && format != 1) {
+#endif
         av_log(s->avctx, AV_LOG_ERROR, "Bad picture format\n");
         return AVERROR_INVALIDDATA;
     }

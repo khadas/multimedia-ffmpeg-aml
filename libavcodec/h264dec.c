@@ -702,6 +702,29 @@ static int decode_nal_units(H264Context *h, const uint8_t *buf, int buf_size)
         case H264_NAL_SPS_EXT:
         case H264_NAL_AUXILIARY_SLICE:
             break;
+#ifdef AMFFMPEG
+        case H264_NAL_PREFIX:
+        case H264_NAL_SUB_SPS:
+        case H264_NAL_SLC_EXT:
+            /*0x1b is ts avc stream type set mvc once*/
+            if (avctx->codec_tag == 0x1b) {
+                avctx->codec_tag = MKTAG('M', 'V', 'C', ' ');
+            }
+            break;
+        case H264_NAL_264_DV_META:
+            /*00 00 00 01 7c 01 19  08
+            nal type = 0x7c & 0x1f;
+            any conflict?
+            */
+            avctx->has_dolby_vision_meta = 1;
+            break;
+        case H264_NAL_264_DV_EL:
+            /*00 00 00 01 7e
+            nal type = 0x7e & 0x1f;
+            any conflict?
+            */
+            avctx->has_dolby_vision_el = 1;
+#endif
         default:
             av_log(avctx, AV_LOG_DEBUG, "Unknown NAL code: %d (%d bits)\n",
                    nal->type, nal->size_bits);

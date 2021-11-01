@@ -92,7 +92,11 @@ static int mpegaudio_parse(AVCodecParserContext *s1,
                             avctx->bit_rate += (bit_rate - avctx->bit_rate) / (s->header_count - header_threshold);
                         }
                     }
-
+#ifdef AMFFMPEG
+                    if (avctx->codec_id == AV_CODEC_ID_MP3 && codec_id == AV_CODEC_ID_MP2) {
+                        avctx->codec_id = AV_CODEC_ID_MP2;
+                    }
+#endif
                     if (s1->flags & PARSER_FLAG_COMPLETE_FRAMES) {
                         s->frame_size = 0;
                         next = buf_size;

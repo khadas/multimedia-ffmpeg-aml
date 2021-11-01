@@ -258,7 +258,11 @@ static int decode_str(AVFormatContext *s, AVIOContext *pb, int encoding,
     case ID3v2_ENCODING_ISO8859:
         while (left && ch) {
             ch = avio_r8(pb);
+#ifdef AMFFMPEG
+            avio_w8(dynbuf, ch);
+#else
             PUT_UTF8(ch, tmp, avio_w8(dynbuf, tmp);)
+#endif
             left--;
         }
         break;
@@ -282,6 +286,33 @@ static int decode_str(AVFormatContext *s, AVIOContext *pb, int encoding,
             *maxread = left;
             return AVERROR_INVALIDDATA;
         }
+#ifdef AMFFMPEG
+        int i = 0;
+        int len = left / 2;
+        int tlen = left;
+        int eightBit = 1;
+        uint16_t *framedata = malloc(left+1);
+        memset(framedata, 0, left+1);
+        for (i = 0; i < len; i++) {
+            framedata[i] = get(pb);
+            left -= 2;
+            if (framedata[i] > 0xff) {
+                eightBit = 0;
+            }
+        }
+        if (eightBit) {
+            for (i = 0; i < len; i++) {
+                avio_w8(dynbuf, framedata[i]);
+            }
+            free(framedata);
+            break;
+        }
+        else {
+            free(framedata);
+            left = tlen - left;
+            avio_seek(pb, -left, SEEK_CUR);
+        }
+#endif
         // fall-through
 
     case ID3v2_ENCODING_UTF16BE:

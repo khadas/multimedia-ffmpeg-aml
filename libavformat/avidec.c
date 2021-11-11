@@ -608,8 +608,11 @@ static int avi_read_header(AVFormatContext *s)
                     handler != MKTAG('d', 'v', 's', 'l'))
                     return AVERROR_INVALIDDATA;
 
-                if (!CONFIG_DV_DEMUXER)
+                #if (CONFIG_DV_DEMUXER == 1)
+
+                #else
                     return AVERROR_DEMUXER_NOT_FOUND;
+                #endif
 
                 ast = s->streams[0]->priv_data;
                 st->priv_data = NULL;

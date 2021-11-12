@@ -25,6 +25,26 @@
 #include "parser.h"
 #include "aac_ac3_parser.h"
 
+#ifdef AMFFMPEG
+static void set_codec_params(AVCodecContext *avctx,AACAC3ParseContext *s) {
+    if (s == NULL || avctx == NULL) {
+        return;
+    }
+    if (avctx->channels <= 0 && s->channels > 0)
+        avctx->channels = s->channels;
+
+    if (avctx->sample_rate <= 0 && s->sample_rate > 0)
+        avctx->sample_rate = s->sample_rate;
+
+    if (avctx->bit_rate <= 0 && s->bit_rate > 0)
+        avctx->bit_rate = s->bit_rate;
+
+    if (avctx->channel_layout <= 0 && s->channel_layout > 0)
+        avctx->channel_layout = s->channel_layout;
+
+    return;
+}
+#endif
 int ff_aac_ac3_parse(AVCodecParserContext *s1,
                      AVCodecContext *avctx,
                      const uint8_t **poutbuf, int *poutbuf_size,
@@ -105,6 +125,9 @@ get_next:
         s->remaining_size -= FFMIN(s->remaining_size, buf_size);
         *poutbuf = NULL;
         *poutbuf_size = 0;
+#ifdef AMFFMPEG
+        set_codec_params(avctx,s);
+#endif
         return buf_size;
     }
 
@@ -112,8 +135,10 @@ get_next:
     *poutbuf_size = buf_size;
 
 #ifdef AMFFMPEG
-    if (need_assign == 1)
+    if (need_assign == 1) {
+        set_codec_params(avctx,s);
         return i;
+    }
 #endif
     /* update codec info */
     if(s->codec_id)
@@ -142,6 +167,8 @@ get_next:
                 (s->bit_rate - avctx->bit_rate) / s->frame_number;
         }
     }
-
+#ifdef AMFFMPEG
+    set_codec_params(avctx,s);
+#endif
     return i;
 }

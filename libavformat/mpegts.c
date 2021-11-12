@@ -862,6 +862,9 @@ static const StreamType SCTE_types[] = {
 /* ATSC ? */
 static const StreamType MISC_types[] = {
     { 0x81, AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_AC3 },
+#ifdef AMFFMPEG
+    { 0x87, AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_EAC3 },
+#endif
     { 0x8a, AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_DTS },
     { 0 },
 };
@@ -955,6 +958,7 @@ static int mpegts_set_stream_info(AVStream *st, PESContext *pes,
     if ((prog_reg_desc == AV_RL32("HDMV") ||
          prog_reg_desc == AV_RL32("HDPR")) &&
         st->codecpar->codec_id == AV_CODEC_ID_NONE) {
+        av_log(pes->stream,AV_LOG_ERROR,"HDMV       ---       HDPR");
         mpegts_find_stream_type(st, pes->stream_type, HDMV_types);
         if (pes->stream_type == 0x83) {
             // HDMV TrueHD streams also contain an AC3 coded version of the
@@ -3402,7 +3406,15 @@ static void check_ac3_dts(AVFormatContext * s)
                 if (data[es_header_pos] == 0xFE && data[es_header_pos + 1] == 0x7F && data[es_header_pos + 2] == 0x01 && data[es_header_pos + 3] == 0x80) {
                     s->streams[s_index]->codecpar->codec_id = AV_CODEC_ID_DTS;
                 }
-
+#ifdef AMFFMPEG
+                if (data[es_header_pos] == 0x0B && data[es_header_pos + 1] == 0x77) {
+                    unsigned char bitstream_id = ( ((data[es_header_pos+4] & 0x07) << 5) | ((data[es_header_pos+5] & 0XF8) >> 3)) & 0x1f;
+                    av_log(NULL,AV_LOG_ERROR,"[%s][%d] bitstream_id : %d",__FUNCTION__,__LINE__,bitstream_id);
+                    if (bitstream_id > 10 && bitstream_id <= 16) {
+                        s->streams[s_index]->codecpar->codec_id = AV_CODEC_ID_EAC3;
+                    }
+                }
+#endif
                 break;
             }
 

@@ -1083,7 +1083,13 @@ int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub,
             sub->end_display_time = av_rescale_q(avpkt->duration,
                                                  avctx->pkt_timebase, ms);
         }
-
+#ifdef AMFFMPEG
+        if (!avctx) {
+            av_log(NULL, AV_LOG_ERROR, "[%s:%d] avctx == null.\n", __FUNCTION__, __LINE__);
+        } else if (!avctx->codec_descriptor) {
+            av_log(NULL, AV_LOG_ERROR, "[%s:%d] avctx->codec_descriptor == null.\n", __FUNCTION__, __LINE__);
+        } else
+#endif
         if (avctx->codec_descriptor->props & AV_CODEC_PROP_BITMAP_SUB)
             sub->format = 0;
         else if (avctx->codec_descriptor->props & AV_CODEC_PROP_TEXT_SUB)

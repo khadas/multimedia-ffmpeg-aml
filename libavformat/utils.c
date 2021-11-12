@@ -2673,7 +2673,11 @@ static void update_stream_timings(AVFormatContext *ic)
                     p->end_time = end_time1;
             }
         }
+#ifdef AMFFMPEG
+        if (st->duration != AV_NOPTS_VALUE && (st->codec->codec_type == AVMEDIA_TYPE_VIDEO || st->codec->codec_type == AVMEDIA_TYPE_AUDIO)) {
+#else
         if (st->duration != AV_NOPTS_VALUE) {
+#endif
             duration1 = av_rescale_q(st->duration, st->time_base,
                                      AV_TIME_BASE_Q);
             if (is_text)

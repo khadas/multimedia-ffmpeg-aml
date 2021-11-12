@@ -2125,7 +2125,7 @@ static int mov_read_dvcc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 #endif
         bl_compatibility_id = (int32_t)(config_data[4] >> 4);
     }
-    av_log(c, AV_LOG_INFO, "profile:%d,level:%d bl_compatibility_id:%d\n", profile, level, bl_compatibility_id);
+    av_log(c, AV_LOG_ERROR, "profile:%d,level:%d bl_compatibility_id:%d\n", profile, level, bl_compatibility_id);
 
     st->codec->has_dolby_vision_config_box = 1;
     st->codec->dolby_vision_profile = profile;
@@ -6884,7 +6884,7 @@ static int mov_read_id32(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     ff_id3v2_read(c->fc, ID3v2_DEFAULT_MAGIC, &id3v2_extra_meta, len);
 
     if (id3v2_extra_meta) {
-        if ((ret = ff_id3v2_parse_apic(c->fc, &id3v2_extra_meta)) < 0) {
+        if ((ret = ff_id3v2_parse_apic(c->fc, id3v2_extra_meta)) < 0) {
             ff_id3v2_free_extra_meta(&id3v2_extra_meta);
             return ret;
         }
@@ -7109,13 +7109,15 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         return 0;
     st = c->fc->streams[c->fc->nb_streams-1];
 
-    if ((uint64_t)atom.size > (1<<30) || atom.size < 4)
+    if ((uint64_t)atom.size > (1<<30) || atom.size < 4) {
+        av_log(c,AV_LOG_ERROR,"mov_read_dvcc_dvvc error, atom.size:%lld",atom.size);
         return AVERROR_INVALIDDATA;
-
+    }
     dovi = av_dovi_alloc(&dovi_size);
-    if (!dovi)
+    if (!dovi) {
+        av_log(c,AV_LOG_ERROR,"mov_read_dvcc_dvvc error, av_dovi_alloc ENOMEM");
         return AVERROR(ENOMEM);
-
+    }
     dovi->dv_version_major = avio_r8(pb);
     dovi->dv_version_minor = avio_r8(pb);
 
@@ -7138,10 +7140,11 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
                                   (uint8_t *)dovi, dovi_size);
     if (ret < 0) {
         av_free(dovi);
+        av_log(c,AV_LOG_ERROR,"mov_read_dvcc_dvvc error, av_stream_add_side_data return %d",ret);
         return ret;
     }
 
-    av_log(c, AV_LOG_TRACE, "DOVI in dvcC/dvvC box, version: %d.%d, profile: %d, level: %d, "
+    av_log(c, AV_LOG_VERBOSE, "DOVI in dvcC/dvvC box, version: %d.%d, profile: %d, level: %d, "
            "rpu flag: %d, el flag: %d, bl flag: %d, compatibility id: %d\n",
            dovi->dv_version_major, dovi->dv_version_minor,
            dovi->dv_profile, dovi->dv_level,
@@ -7150,7 +7153,19 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
            dovi->bl_present_flag,
            dovi->dv_bl_signal_compatibility_id
         );
+#ifdef AMFFMPEG
+    st->codec->has_dolby_vision_config_box = 1;
+    st->codec->dolby_vision_profile = dovi->dv_profile;
+    st->codec->dolby_vision_level = dovi->dv_level;
 
+    if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
+        st->codec->dolby_vision_rpu_assoc = 1;
+    } else {
+        st->codec->dolby_vision_rpu_assoc = 0;
+    }
+
+    st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
+#endif
     return 0;
 }
 
@@ -7244,8 +7259,8 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('s','v','3','d'), mov_read_sv3d }, /* spherical video box */
 #ifdef AMFFMPEG
 { MKTAG('I','D','3','2'), mov_read_id32 }, /* id32 video box */
-{ MKTAG('d','v','c','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
-{ MKTAG('d','v','v','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
+//{ MKTAG('d','v','c','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
+//{ MKTAG('d','v','v','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
 #endif
 { MKTAG('d','O','p','s'), mov_read_dops },
 { MKTAG('d','m','l','p'), mov_read_dmlp },
@@ -7254,10 +7269,8 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('v','p','c','C'), mov_read_vpcc },
 { MKTAG('m','d','c','v'), mov_read_mdcv },
 { MKTAG('c','l','l','i'), mov_read_clli },
-#ifndef AMFFMPEG
 { MKTAG('d','v','c','C'), mov_read_dvcc_dvvc },
 { MKTAG('d','v','v','C'), mov_read_dvcc_dvvc },
-#endif
 { 0, NULL }
 };
 

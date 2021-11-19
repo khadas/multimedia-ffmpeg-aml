@@ -1192,7 +1192,9 @@ libavcodec/cri_parser.c
 libavcodec/cscd.c 
 libavcodec/cyuv.c 
 libavcodec/d3d11va.c 
-libavcodec/dca.c 
+libavcodec/dca.c
+libavcodec/dca_exss.c
+libavcodec/dca_parser.c
 libavcodec/dct.c 
 libavcodec/dct32_fixed.c 
 libavcodec/dct32_float.c 

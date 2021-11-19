@@ -79,12 +79,18 @@ typedef struct DCAExssParser {
     int     static_fields_present;  ///< Per stream static fields presence flag
     int     npresents;  ///< Number of defined audio presentations
     int     nassets;    ///< Number of audio assets in extension substream
-
+#ifdef AMFFMPEG
+    int     ref_clock_code;         ///< Reference Clock Code
+    int     exss_fr_duration_code;  ///< Extension Substream Frame Duration
+#endif
     int     mix_metadata_enabled;   ///< Mixing metadata enable flag
     int     nmixoutconfigs;         ///< Number of mixing configurations
     int     nmixoutchs[4];          ///< Speaker layout mask for mixer output channels
-
+#ifdef AMFFMPEG
+    DCAExssAsset   assets[8];    ///< Audio asset descriptors
+#else
     DCAExssAsset   assets[1];    ///< Audio asset descriptors
+#endif
 } DCAExssParser;
 
 int ff_dca_exss_parse(DCAExssParser *s, const uint8_t *data, int size);

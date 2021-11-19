@@ -10,6 +10,9 @@ static const AVCodecParser * const parser_list[] = {
     &ff_cavsvideo_parser,
     &ff_cook_parser,
     &ff_cri_parser,
+#ifdef AMFFMPEG
+    &ff_dca_parser,
+#endif
     &ff_dirac_parser,
     &ff_dnxhd_parser,
     &ff_dpx_parser,

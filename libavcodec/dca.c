@@ -51,6 +51,21 @@ const uint8_t ff_dca_bits_per_sample[8] = {
     16, 16, 20, 20, 0, 24, 24, 0
 };
 
+#ifdef AMFFMPEG
+const uint8_t ff_dca_channels[16] = {
+    1, 2, 2, 2, 2, 3, 3, 4, 4, 5, 6, 6, 6, 7, 8, 8
+};
+
+const uint32_t ff_dca_bit_rates[32] = {
+      32000,   56000,   64000,   96000,  112000, 128000,
+     192000,  224000,  256000,  320000,  384000,
+     448000,  512000,  576000,  640000,  768000,
+     896000, 1024000, 1152000, 1280000, 1344000,
+    1408000, 1411200, 1472000, 1536000, 1920000,
+    2048000, 3072000, 3840000, 1 /* open */, 2 /* variable */, 3 /* lossless */
+};
+#endif
+
 int avpriv_dca_convert_bitstream(const uint8_t *src, int src_size, uint8_t *dst,
                              int max_size)
 {
@@ -143,6 +158,7 @@ int ff_dca_parse_core_frame_header(DCACoreFrameHeader *h, GetBitContext *gb)
     h->sumdiff_front = get_bits1(gb);
     h->sumdiff_surround = get_bits1(gb);
     h->dn_code = get_bits(gb, 4);
+
     return 0;
 }
 

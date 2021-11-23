@@ -3718,7 +3718,9 @@ static int matroska_parse_block(MatroskaDemuxContext *matroska, AVBufferRef *buf
         is_keyframe = flags & 0x80 ? AV_PKT_FLAG_KEY : 0;
 
     if (cluster_time != (uint64_t) -1 &&
-        (block_time >= 0 || cluster_time >= -block_time)) {
+        // Add " || track.type == MATROSKA_TRACK_TYPE_AUDIO" for :
+        //    android.media.cts.DecoderTest#testTrackSelectionMkv
+        (block_time >= 0 || cluster_time >= -block_time || track->type == MATROSKA_TRACK_TYPE_AUDIO)) {
         uint64_t timecode_cluster_in_track_tb = (double) cluster_time / track->time_scale;
         timecode = timecode_cluster_in_track_tb + block_time - track->codec_delay_in_track_tb;
         if (track->type == MATROSKA_TRACK_TYPE_SUBTITLE &&

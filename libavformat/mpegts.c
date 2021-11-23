@@ -2448,19 +2448,13 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
         desc_len -= 4;
         if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
             ts->video_ecm_pid = ecm_pid;
-            if (av_opt_set_int(ts, "video_ecm_pid", ts->video_ecm_pid, 0) != 0)
-                av_log(ts->stream, AV_LOG_WARNING, "set video ecm pid error!\n");
         } else if (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             ts->audio_ecm_pid = ecm_pid;
-            if (av_opt_set_int(ts, "audio_ecm_pid", ts->audio_ecm_pid, 0) != 0)
-                av_log(ts->stream, AV_LOG_WARNING, "set audio ecm pid error!\n");
         }
 
         if (desc_len > 0) {
             ts->private_data = av_malloc(desc_len);
             memcpy(ts->private_data, *pp, desc_len);
-            if (av_opt_set_bin(ts, "private_data", ts->private_data, desc_len, 0) != 0)
-                av_log(ts->stream, AV_LOG_WARNING, "set private data error!\n");
         }
 
         break;
@@ -2639,6 +2633,18 @@ static void pmt_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
             ts->ca_system_id = get16(&p, p_end); //ca_system_id
             ecm_pid = get16(&p, p_end) & 0x1fff;//ecm_pid
             len -= 4;
+#if 1
+            // androids cts : android.media.cts.MediaDrmClearkeyTest#testClearKeyPlaybackMpeg2ts
+            if (ts->video_ecm_pid == 0x1fff) {
+                ts->video_ecm_pid = ecm_pid;
+            } else if (ts->audio_ecm_pid == 0x1fff && ts->video_ecm_pid != 0x1fff) {
+                ts->audio_ecm_pid = ecm_pid;
+            }
+            if (len > 0) {
+                ts->private_data = av_malloc(len);
+                memcpy(ts->private_data, p, len);
+            }
+#else
             if (av_opt_set_int(ts, "ca_system_id", ts->ca_system_id, 0) != 0)
                 av_log(ts->stream, AV_LOG_WARNING, "set cas id error!\n");
             if (ts->video_ecm_pid == 0x1fff) {
@@ -2656,6 +2662,7 @@ static void pmt_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
                 if (av_opt_set_bin(ts, "private_data", ts->private_data, len, 0) != 0)
                     av_log(ts->stream, AV_LOG_WARNING, "set private data error!\n");
             }
+#endif
 #endif
         }
         p += len;

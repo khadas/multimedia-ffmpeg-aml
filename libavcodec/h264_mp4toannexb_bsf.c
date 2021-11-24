@@ -46,8 +46,11 @@ typedef struct H264BSFContext {
 static void count_or_copy(uint8_t **out, uint64_t *out_size,
                           const uint8_t *in, int in_size, int ps, int copy)
 {
+#ifndef AMFFMPEG
     uint8_t start_code_size = ps < 0 ? 0 : *out_size == 0 || ps ? 4 : 3;
-
+#else
+    uint8_t start_code_size = ps < 0 ? 0 : 4;
+#endif
     if (copy) {
         memcpy(*out + start_code_size, in, in_size);
         if (start_code_size == 4) {
@@ -176,6 +179,8 @@ static int h264_mp4toannexb_filter(AVBSFContext *ctx, AVPacket *opkt)
     uint8_t *out;
     uint64_t out_size;
     int ret;
+    uint8_t *old_out;
+    int old_out_size;
 
     ret = ff_bsf_get_packet(ctx, &in);
     if (ret < 0)
@@ -245,9 +250,29 @@ static int h264_mp4toannexb_filter(AVBSFContext *ctx, AVPacket *opkt)
             /* prepend only to the first type 5 NAL unit of an IDR picture, if no sps/pps are already present */
             if (new_idr && unit_type == H264_NAL_IDR_SLICE && !sps_seen && !pps_seen) {
                 if (ctx->par_out->extradata)
+#ifdef AMFFMPEG
+                {
+                    old_out_size  =  out_size;
+                    if ((j) && (old_out_size > 0)) {
+                        old_out = av_mallocz(old_out_size);
+                        memcpy(old_out, out - out_size, out_size);
+                    }
+#endif
                     count_or_copy(&out, &out_size, ctx->par_out->extradata,
                                   ctx->par_out->extradata_size, -1, j);
+#ifdef AMFFMPEG
+                    if ((j) && (old_out_size > 0)) {
+                        memcpy(out - out_size, ctx->par_out->extradata, ctx->par_out->extradata_size);
+                        memcpy(out - out_size + ctx->par_out->extradata_size, old_out, out_size - ctx->par_out->extradata_size);
+                        av_freep(&old_out);
+                    }
+                }
+#endif
                 new_idr = 0;
+#ifdef AMFFMPEG
+                sps_seen = 1;// add sps_pps nal only once in IDR frame
+                pps_seen = 1;
+#endif
             /* if only SPS has been seen, also insert PPS */
             } else if (new_idr && unit_type == H264_NAL_IDR_SLICE && sps_seen && !pps_seen) {
                 if (!s->pps_size) {

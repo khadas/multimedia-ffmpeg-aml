@@ -32,6 +32,9 @@ extern AVCodecParser ff_avs2_parser;
 extern AVCodecParser ff_avs3_parser;
 extern AVCodecParser ff_bmp_parser;
 extern AVCodecParser ff_cavsvideo_parser;
+#ifdef AMFFMPEG
+extern AVCodecParser ff_cavs2video_parser;
+#endif
 extern AVCodecParser ff_cook_parser;
 extern AVCodecParser ff_cri_parser;
 extern AVCodecParser ff_dca_parser;

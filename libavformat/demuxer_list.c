@@ -68,6 +68,7 @@ static const AVInputFormat * const demuxer_list[] = {
 #ifdef AMFFMPEG
     &ff_dts_demuxer,
     &ff_dtshd_demuxer,
+    &ff_cavs2video_demuxer,
 #endif
     &ff_dsf_demuxer,
     &ff_dsicin_demuxer,

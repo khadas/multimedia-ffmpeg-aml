@@ -618,6 +618,15 @@ static const AVCodecDescriptor codec_descriptors[] = {
         .long_name = NULL_IF_CONFIG_SMALL("AVS (Audio Video Standard) video"),
         .props     = AV_CODEC_PROP_LOSSY,
     },
+#ifdef AMFFMPEG
+    {
+        .id        = AV_CODEC_ID_CAVS2,
+        .type      = AVMEDIA_TYPE_VIDEO,
+        .name      = "cavs2",
+        .long_name = NULL_IF_CONFIG_SMALL("Chinese AVS2 (Audio Video Standard) (AVS2)"),
+        .props     = AV_CODEC_PROP_LOSSY | AV_CODEC_PROP_REORDER,
+    },
+#endif
     {
         .id        = AV_CODEC_ID_SMACKVIDEO,
         .type      = AVMEDIA_TYPE_VIDEO,

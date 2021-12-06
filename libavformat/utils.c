@@ -1556,7 +1556,7 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
     while (!got_packet && !s->internal->parse_queue) {
         AVStream *st;
 #ifdef AMFFMPEG
-        if (s->pb->mediascan_flag) {
+        if (s->pb && s->pb->mediascan_flag) {
             if (avformat_getcurtime_us() > (first_timeval + s->max_analyze_duration)) {
                 return -1;
             }

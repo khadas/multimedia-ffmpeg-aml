@@ -35,7 +35,9 @@
 #include "version.h"
 #ifdef AMFFMPEG
 #include <stdbool.h>
+#ifdef __ANDROID__
 #include <cutils/properties.h>
+#endif
 #endif
 /*
  * An apple http stream consists of a playlist with media segment files,
@@ -378,11 +380,13 @@ static int hls_open(URLContext *h, const char *uri, int flags)
         s->index_variants = 0;
         char value[92] = {0};
 
+#ifdef __ANDROID__
         if (property_get("media.amffmpeg.start.bw", value, NULL))
         {
             bw = atoi((const char*)value);
             av_log(NULL, AV_LOG_WARNING, "bw=%lld\n",bw);
         } else
+#endif
             bw = 0;
         for (i = 0; i < s->n_variants; i++) {
             if (s->variants[i]->bandwidth <= bw) {

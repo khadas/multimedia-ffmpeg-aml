@@ -7267,17 +7267,21 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
            dovi->dv_bl_signal_compatibility_id
         );
 #ifdef AMFFMPEG
-    st->codec->has_dolby_vision_config_box = 1;
-    st->codec->dolby_vision_profile = dovi->dv_profile;
-    st->codec->dolby_vision_level = dovi->dv_level;
-
-    if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
-        st->codec->dolby_vision_rpu_assoc = 1;
+    if (dovi->dv_profile > 9) {
+        av_log(c, AV_LOG_ERROR, "profile error:%x\n", dovi->dv_profile);
     } else {
-        st->codec->dolby_vision_rpu_assoc = 0;
-    }
+        st->codec->has_dolby_vision_config_box = 1;
+        st->codec->dolby_vision_profile = dovi->dv_profile;
+        st->codec->dolby_vision_level = dovi->dv_level;
 
-    st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
+        if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
+            st->codec->dolby_vision_rpu_assoc = 1;
+        } else {
+            st->codec->dolby_vision_rpu_assoc = 0;
+        }
+
+        st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
+    }
 #endif
     return 0;
 }

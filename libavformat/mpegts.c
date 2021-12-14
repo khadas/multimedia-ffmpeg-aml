@@ -2345,7 +2345,7 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
         }
         break;
     case 0xb0: /* DOVI video stream descriptor */
-#ifdef AMFFMPEG
+#if 0// #ifdef AMFFMPEG
         if (desc_len > 0 && desc_len < 4)
             return AVERROR_INVALIDDATA;
 
@@ -2392,7 +2392,7 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
         if (profile == 8 || profile == 9) {
             st->codec->dolby_vision_bl_compat_id = bl_compatibility_id;
         }
-#else
+#endif
         {
             uint32_t buf;
             AVDOVIDecoderConfigurationRecord *dovi;
@@ -2437,8 +2437,22 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                    dovi->el_present_flag,
                    dovi->bl_present_flag,
                    dovi->dv_bl_signal_compatibility_id);
-        }
+#ifdef AMFFMPEG
+            if (dovi->dv_profile > 9) {
+                av_log(fc, AV_LOG_ERROR, "profile error:%x\n", dovi->dv_profile);
+            } else {
+                st->codec->has_dolby_vision_config_box = 1;
+                st->codec->dolby_vision_profile = dovi->dv_profile;
+                st->codec->dolby_vision_level = dovi->dv_level;
+                if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
+                    st->codec->dolby_vision_rpu_assoc = 1;
+                } else {
+                    st->codec->dolby_vision_rpu_assoc = 0;
+                }
+                st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
+            }
 #endif
+        }
         break;
 #ifdef AMFFMPEG
     case 0x09: /* CAS descriptor */

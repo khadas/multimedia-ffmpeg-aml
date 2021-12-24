@@ -2265,6 +2265,11 @@ static int dash_read_packet(AVFormatContext *s, AVPacket *pkt)
             cur->cur_timestamp = av_rescale(pkt->pts, (int64_t)cur->ctx->streams[0]->time_base.num * 90000, cur->ctx->streams[0]->time_base.den);
             pkt->stream_index = cur->stream_index;
             return 0;
+#ifdef AMFFMPEG
+        } else {
+            if (!cur->is_restart_needed)
+                s->streams[cur->stream_index]->discard = AVDISCARD_ALL;
+#endif
         }
         if (cur->is_restart_needed) {
             cur->cur_seg_offset = 0;

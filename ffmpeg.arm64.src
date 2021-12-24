@@ -527,6 +527,7 @@ libavformat/concatdec.c
 libavformat/crcenc.c 
 libavformat/crypto.c 
 libavformat/dash.c 
+libavformat/dashdec.c 
 libavformat/dashenc.c 
 libavformat/data_uri.c 
 libavformat/dauddec.c 

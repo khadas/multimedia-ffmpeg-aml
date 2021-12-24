@@ -13,6 +13,10 @@ FFMPEG_CFLAGS := \
     -Wno-string-plus-int \
     -fPIC \
 
+ifeq ($(AMFFMPEG_VENDOR),true)
+FFMPEG_CFLAGS += -DAMFFMPEG_VENDOR
+endif
+
 FFMPEG_LDFLAGS := -Wl,--as-needed -Wl,-Bsymbolic -lm 
 
 $(warning "Define TARGET_ARCH: " $(TARGET_ARCH))
@@ -65,10 +69,12 @@ LOCAL_SRC_FILES_arm := $(FFMPEG_SOURCE_ARM)
 LOCAL_SRC_FILES_arm64 := $(FFMPEG_SOURCE_ARM64)
 
 LOCAL_C_INCLUDES += external/zlib
+LOCAL_C_INCLUDES += external/libxml2/include
 
 LOCAL_C_INCLUDES += external/boringssl/src/include
 LOCAL_SHARED_LIBRARIES := libutils liblog libdl libz libcutils
 LOCAL_SHARED_LIBRARIES += libssl libcrypto
+LOCAL_SHARED_LIBRARIES += libxml2
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -106,9 +112,11 @@ LOCAL_SRC_FILES_arm := $(FFMPEG_SOURCE_ARM)
 LOCAL_SRC_FILES_arm64 := $(FFMPEG_SOURCE_ARM64)
 
 LOCAL_C_INCLUDES += external/zlib
+LOCAL_C_INCLUDES += external/libxml2/include
 
 LOCAL_C_INCLUDES += external/boringssl/src/include
 LOCAL_SHARED_LIBRARIES := libutils liblog libdl libz libcutils
+LOCAL_SHARED_LIBRARIES += libxml2
 
 LOCAL_SHARED_LIBRARIES += libssl libcrypto
 include $(BUILD_SHARED_LIBRARY)

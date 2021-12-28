@@ -59,9 +59,15 @@ static int pmp_header(AVFormatContext *s)
     switch (avio_rl32(pb)) {
     case 0:
         vst->codecpar->codec_id = AV_CODEC_ID_MPEG4;
+#ifdef AMFFMPEG
+        vst->need_parsing = AVSTREAM_PARSE_FULL;
+#endif
         break;
     case 1:
         vst->codecpar->codec_id = AV_CODEC_ID_H264;
+#ifdef AMFFMPEG
+        vst->need_parsing = AVSTREAM_PARSE_FULL;
+#endif
         break;
     default:
         av_log(s, AV_LOG_ERROR, "Unsupported video format\n");
@@ -121,6 +127,9 @@ static int pmp_header(AVFormatContext *s)
         ast->codecpar->codec_id    = audio_codec_id;
         ast->codecpar->channels    = channels;
         ast->codecpar->sample_rate = srate;
+#ifdef AMFFMPEG
+        vst->need_parsing = AVSTREAM_PARSE_FULL;
+#endif
         avpriv_set_pts_info(ast, 32, 1, srate);
     }
     return 0;

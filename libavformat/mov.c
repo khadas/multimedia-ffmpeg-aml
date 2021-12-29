@@ -8658,7 +8658,7 @@ static const AVOption mov_options[] = {
         "Seek each stream individually to the closest point",
         OFFSET(seek_individually), AV_OPT_TYPE_BOOL, { .i64 = 1 },
         0, 1, FLAGS},
-    {"ignore_editlist", "Ignore the edit list atom.", OFFSET(ignore_editlist), AV_OPT_TYPE_BOOL, {.i64 = 1},
+    {"ignore_editlist", "Ignore the edit list atom.", OFFSET(ignore_editlist), AV_OPT_TYPE_BOOL, {.i64 = 0},
         0, 1, FLAGS},
     {"advanced_editlist",
         "Modify the AVIndex according to the editlists. Use this option to decode in the order specified by the edits.",

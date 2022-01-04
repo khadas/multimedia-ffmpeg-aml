@@ -92,7 +92,8 @@ typedef struct HLSContext {
     int durations;
 #endif
     char* cur_kurl;
-    uint8_t cur_iv[33];
+    uint8_t *cur_iv;
+    int cur_iv_len;
     URLContext *seg_hd;
     int64_t last_load_time;
     int is_encrypted;
@@ -154,6 +155,16 @@ static void free_variant_list(HLSContext *s)
         av_freep(&s->variants[i]);
     av_freep(&s->variants);
     s->n_variants = 0;
+    if (s->cur_kurl)
+    {
+        av_free(s->cur_kurl);
+        s->cur_kurl = NULL;
+    }
+    if (s->cur_iv)
+    {
+        av_free(s->cur_iv);
+        s->cur_iv = NULL;
+    }
 }
 
 struct variant_info {
@@ -488,16 +499,16 @@ start:
         }
         if (s->is_encrypted)
         {
-            memcpy(s->cur_iv , s->segments[cur_no]->seg_iv, 33);
-            memcpy(s->cur_kurl , s->segments[cur_no]->seg_kurl, strlen(s->segments[cur_no]->seg_kurl)+1);
-/*            if (av_opt_set(s, "cur_iv", s->segments[cur_no]->seg_iv, 0) < 0)
+            // memcpy(s->cur_iv , s->segments[cur_no]->seg_iv, 33);
+            // memcpy(s->cur_kurl , s->segments[cur_no]->seg_kurl, strlen(s->segments[cur_no]->seg_kurl)+1);
+            if (av_opt_set(s, "cur_iv", s->segments[cur_no]->seg_iv, 0) < 0)
             {
               av_log(s, AV_LOG_WARNING, "set cur_iv error\n");
             }
             if ((s->n_segments > 0) && av_opt_set(s, "cur_kurl", s->segments[cur_no]->seg_kurl, 0) < 0)
             {
                 av_log(s, AV_LOG_WARNING, "set cur_kurl error!\n");
-            } */
+            }
         }
         if (ret > 0) {
             /*av_log(s, AV_LOG_ERROR, "[%s %d] size=%d delay=%lld\n",

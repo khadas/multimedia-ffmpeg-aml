@@ -103,6 +103,7 @@ typedef struct HLSContext {
     int64_t mReadTime;
     int64_t mBandWidth[3];
     int bandwidth_index;
+    int reconnect;
 #endif
 } HLSContext;
 
@@ -113,6 +114,7 @@ static const AVOption hls_options[] = {
     {"cur_iv",  "current iv", offsetof(HLSContext,cur_iv),  AV_OPT_TYPE_BINARY, .flags = AV_OPT_FLAG_DECODING_PARAM|AV_OPT_FLAG_ENCODING_PARAM },
 #ifdef AMFFMPEG
     {"durations",  "durations", offsetof(HLSContext,durations),  AV_OPT_TYPE_INT64,{.i64 = 0}, 0, INT64_MAX, AV_OPT_FLAG_EXPORT},
+    {"reconnect", "auto reconnect after ts-segment disconnect before EOF", offsetof(HLSContext,reconnect), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, AV_OPT_FLAG_DECODING_PARAM },
 #else
     {"durations",  "durations", offsetof(HLSContext,durations),  AV_OPT_TYPE_INT,{.i64 = 0}, 0, INT_MAX, AV_OPT_FLAG_EXPORT},
 #endif
@@ -635,10 +637,19 @@ retry:
     url = s->segments[s->cur_seq_no - s->start_seq_no]->url;
 #ifdef AMFFMPEG
     av_log(h, AV_LOG_DEBUG, "opening %s \ncur_no=%lld cur_seq_no=%d\n", url, cur_no, s->cur_seq_no);
-#endif
+    AVDictionary *opts = NULL;
+    char tmpchar[2] = {0};
+    memset(tmpchar, 0, sizeof(tmpchar));
+    sprintf(tmpchar, "%d", s->reconnect);
+    av_dict_set(&opts, "reconnect", tmpchar, 0);
+    ret = ffurl_open_whitelist(&s->seg_hd, url, AVIO_FLAG_READ,
+                            &h->interrupt_callback, &opts,
+                            h->protocol_whitelist, h->protocol_blacklist, h);
+#else
     ret = ffurl_open_whitelist(&s->seg_hd, url, AVIO_FLAG_READ,
                                &h->interrupt_callback, NULL,
                                h->protocol_whitelist, h->protocol_blacklist, h);
+#endif
     if (ret < 0) {
         if (ff_check_interrupt(&h->interrupt_callback))
             return AVERROR_EXIT;

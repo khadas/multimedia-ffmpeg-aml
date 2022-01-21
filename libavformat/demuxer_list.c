@@ -2,6 +2,9 @@ static const AVInputFormat * const demuxer_list[] = {
     &ff_aa_demuxer,
     &ff_aac_demuxer,
     &ff_aax_demuxer,
+#ifdef AMFFMPEG
+    &ff_ac3_demuxer,
+#endif
     &ff_ace_demuxer,
     &ff_acm_demuxer,
     &ff_act_demuxer,
@@ -78,6 +81,9 @@ static const AVInputFormat * const demuxer_list[] = {
     &ff_dxa_demuxer,
     &ff_ea_demuxer,
     &ff_ea_cdata_demuxer,
+#ifdef AMFFMPEG
+    &ff_eac3_demuxer,
+#endif
     &ff_epaf_demuxer,
     &ff_ffmetadata_demuxer,
     &ff_filmstrip_demuxer,

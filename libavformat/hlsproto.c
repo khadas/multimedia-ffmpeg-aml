@@ -664,7 +664,7 @@ static int64_t hls_seek_ext(URLContext *h, int64_t off, int whence)
     int i = 0;
     HLSContext *s = h->priv_data;
 #ifdef AMFFMPEG
-    av_log(h, AV_LOG_WARNING, "hls_seek_ext enter cur_seq_no %d start_seq_no %d off 0x%lld s->durations %d \n", s->cur_seq_no,s->start_seq_no,off,s->durations);
+    av_log(h, AV_LOG_WARNING, "hls_seek_ext enter cur_seq_no %d start_seq_no %d off 0x%llx s->durations %lld \n", s->cur_seq_no,s->start_seq_no,off,s->durations);
     if ((off >= s->start_seq_no && off <= s->durations) || s->start_seq_no)
 #else
     if (off >= s->start_seq_no && off <= s->durations)
@@ -695,13 +695,17 @@ static int64_t hls_seek_ext(URLContext *h, int64_t off, int whence)
           tmpdurations -= s->segments[i]->duration;
           if (tmpdurations < off)
           {
+#ifdef AMFFMPEG
+             s->cur_seq_no = i + s->start_seq_no;
+#else
              s->cur_seq_no = i ;
+#endif
              break;
           }
        }
     }
 #ifdef AMFFMPEG
-    av_log(h, AV_LOG_WARNING, "hls_seek_ext cur_seq_no %d start_seq_no %d off 0x%lld \n", s->cur_seq_no,s->start_seq_no,off);
+    av_log(h, AV_LOG_WARNING, "hls_seek_ext cur_seq_no %d start_seq_no %d off 0x%llx \n", s->cur_seq_no,s->start_seq_no,off);
 #endif
 
 

@@ -3465,6 +3465,7 @@ static int find_prev_closest_index(AVStream *st,
         }
     }
 
+    /*
     // If we have CTTS then refine the search, by searching backwards over PTS
     // computed by adding corresponding CTTS durations to index timestamps.
     if (ctts_data && *index >= 0) {
@@ -3501,7 +3502,7 @@ static int find_prev_closest_index(AVStream *st,
                 (*ctts_sample)--;
             }
         }
-    }
+    */
 
     /* restore AVStream state*/
     st->index_entries = e_keep;

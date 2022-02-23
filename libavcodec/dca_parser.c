@@ -207,7 +207,7 @@ static int dca_parse_params(DCAParseContext *pc1, const uint8_t *buf,
     }
 
     if (AV_RB32(buf) == DCA_SYNCWORD_SUBSTREAM) {
-        *bit_rate = 768000;   // fake as 768k
+        *bit_rate = 1;   // set default 1
         if ((ret = ff_dca_exss_parse(&pc1->exss, buf, buf_size)) < 0) {
             return ret;
         }

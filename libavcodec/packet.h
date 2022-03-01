@@ -435,6 +435,12 @@ enum AVSideDataParamChangeFlags {
     AV_SIDE_DATA_PARAM_CHANGE_DIMENSIONS     = 0x0008,
 };
 
+#define    AV_DV_BOX_TYPE_ERROR  (-1)
+#define    AV_DV_BOX_TYPE_UNKNOWN (0)
+#define    AV_DV_BOX_TYPE_DVVC (1)
+#define    AV_DV_BOX_TYPE_DVCC (2)
+#define    AV_DV_BOX_TYPE_DVWC (3)
+
 /**
  * Allocate an AVPacket and set its fields to default values.  The resulting
  * struct must be freed using av_packet_free().

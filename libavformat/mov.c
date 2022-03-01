@@ -7223,7 +7223,11 @@ static int mov_read_dmlp(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     return 0;
 }
 
+#ifdef AMFFMPEG
+static int mov_read_dvcC_dvvC_dvwC(MOVContext *c, AVIOContext *pb, MOVAtom atom, int dv_box_type)
+#else
 static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+#endif
 {
     AVStream *st;
     uint32_t buf;
@@ -7234,7 +7238,9 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     if (c->fc->nb_streams < 1)
         return 0;
     st = c->fc->streams[c->fc->nb_streams-1];
-
+#ifdef AMFFMPEG
+    st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+#endif
     if ((uint64_t)atom.size > (1<<30) || atom.size < 4) {
         av_log(c,AV_LOG_ERROR,"mov_read_dvcc_dvvc error, atom.size:%lld",atom.size);
         return AVERROR_INVALIDDATA;
@@ -7280,24 +7286,94 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
            dovi->dv_bl_signal_compatibility_id
         );
 #ifdef AMFFMPEG
-    if (dovi->dv_profile > 9) {
-        av_log(c, AV_LOG_ERROR, "profile error:%x\n", dovi->dv_profile);
+    st->codec->has_dolby_vision_config_box = dv_box_type;
+    st->codec->dolby_vision_profile = dovi->dv_profile;
+    st->codec->dolby_vision_level = dovi->dv_level;
+
+    if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
+        st->codec->dolby_vision_rpu_assoc = 1;
     } else {
-        st->codec->has_dolby_vision_config_box = 1;
-        st->codec->dolby_vision_profile = dovi->dv_profile;
-        st->codec->dolby_vision_level = dovi->dv_level;
+        st->codec->dolby_vision_rpu_assoc = 0;
+    }
 
-        if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
-            st->codec->dolby_vision_rpu_assoc = 1;
-        } else {
-            st->codec->dolby_vision_rpu_assoc = 0;
-        }
+    st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
 
-        st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
+    /*
+    Expected results are:
+    • If the test vector (MP4) carries an undefined/unknown Base Layer Signal Compatibility ID (dv_bl_signal_
+        compatibility_id), the device under test rejects the playback.
+    • If the test vector (MP4) is of an undefined/unknown Dolby Vision profile, but its Base Layer Signal
+        Compatibility ID (dv_bl_signal_compatibility_id) is valid, the device under test plays the content
+        properly and TV displays in Dolby Vision picture mode.
+        Note: Level 11 metadata changes when the embedded label on the left side of the test pattern
+        changes.
+    • If the Dolby Vision configuration box contains unknown elements (reserved fields with non-zero value),
+        the device under test ignores the unknown elements properly and play the MP4 test vector properly and
+        TV displays in Dolby Vision picture mode.
+    */
+    if (st->codec->dolby_vision_bl_compat_id != 0 &&
+        st->codec->dolby_vision_bl_compat_id != 1 &&
+        st->codec->dolby_vision_bl_compat_id != 2 &&
+        st->codec->dolby_vision_bl_compat_id != 4 &&
+        st->codec->dolby_vision_bl_compat_id != 6
+        ) {
+        /*
+         *0  -- None, Dolby Vision proprietary 10-bit
+         *1  -- CTA HDR10, as specified by EBU TR 038: HDR10, specifies the use of the perceptual quantization
+                electro-optical transfer function (EOTF) (SMPTE ST 2084) with 10-bit quantization, an ITU-R BT.2020
+                color space, Mastering Display Color Volume as specified in SMPTE ST 2086, and optional static
+                metadata parameters maximum frame-average light level/maximum content light level (MaxFALL/
+                MaxCLL). It uses a limited-range video signal. It is referred to as PQ10 when the static metadata are
+                not used, as might be the case for a live application. Additionally, for Dolby Vision systems, P3 color
+                gamut information is sent using the BT.2020 container. Also, it uses YCbCr 4:2:0 sampling.
+                We strongly recommend that bitstreams with a cross-compatibility ID of 1 include ST 2086 metadata
+                in an MPEG SEI message to facilitate broader applications of the bitstreams (for example,
+                transmission over ATSC 3.0).
+                ITU-R BT.2100 provides an additional specification of the EOTF, color subsampling, and signal range.
+         *2  -- SDR: BT.1886, ITU-R BT.709, YCbCr 4:2:0
+         *3  -- Reserved
+         *4  -- ITU-R BT.2100 provides an additional specification of the transfer characteristic, color subsampling,
+                    and signal range.
+                For certain broadcast and mobile systems, a transfer characteristic VUI value of 18 may provide
+                    base-layer compatibility that works best with certain classes of devices. This uses a BT.2100
+                    gamut in ITU-R BT.2020, NCL Y’CbCr 4:2:0, and assumes non-SDR backward-compatible HLG
+                    signaling, as defined in H.265, ITU-R BT.2100, ATSC3, and ARIB STD-B67. Default assumptions:
+                    peak luminance of 1,000 cd/m2
+                    , and gamma as specified in BT.2100. The recommended chroma
+                    sample location type VUI is 2 (top-left).
+                For other broadcasts systems, a transfer characteristic VUI value of 14, as per ETSI TS 101 154,
+                    v2.5.1 (2019-01) and subsequent versions (and optionally 1, 6, or 15) may provide the best
+                    baselayer SDR backward-compatible HLG signaling when used with the alternative_transfer_
+                    characteristic SEI message, at every random access point, with the preferred_transfer_
+                    function set to 18, as per ETSI TS 101 154, v2.5.1. Note that ITU-R BT.2390 defines a bridge point
+                    for translation of PQ and HLG at a luminance of 1,000 cd/m2
+                    . The recommended chroma sample
+                    location type VUI is 0 (center-left).
+         *5  -- Reserved
+         *6  -- Ultra HD Blu-ray Disc HDR (per Blu-ray Disc Association standard)
+         *7  -- Reserved
+         *15 -- Reserved
+         */
+        av_log(c, AV_LOG_ERROR, "[%s][%d] profile:%d,level:%d bl_compatibility_id:%d\n",__FUNCTION__,__LINE__,  st->codec->dolby_vision_profile,  st->codec->dolby_vision_level,  st->codec->dolby_vision_bl_compat_id);
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+        return 0;
     }
 #endif
     return 0;
 }
+
+#ifdef AMFFMPEG
+static int mov_read_dvwC(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
+    return mov_read_dvcC_dvvC_dvwC(c, pb, atom, AV_DV_BOX_TYPE_DVWC);
+}
+static int mov_read_dvvC(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
+    return mov_read_dvcC_dvvC_dvwC(c, pb, atom, AV_DV_BOX_TYPE_DVVC);
+}
+
+static int mov_read_dvcC(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
+    return mov_read_dvcC_dvvC_dvwC(c, pb, atom, AV_DV_BOX_TYPE_DVCC);
+}
+#endif
 
 static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('A','C','L','R'), mov_read_aclr },
@@ -7389,8 +7465,7 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('s','v','3','d'), mov_read_sv3d }, /* spherical video box */
 #ifdef AMFFMPEG
 { MKTAG('I','D','3','2'), mov_read_id32 }, /* id32 video box */
-//{ MKTAG('d','v','c','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
-//{ MKTAG('d','v','v','C'), mov_read_dvcc }, /* Dolby Vision configuration box*/
+{ MKTAG('d','v','w','C'), mov_read_dvwC },
 #endif
 { MKTAG('d','O','p','s'), mov_read_dops },
 { MKTAG('d','m','l','p'), mov_read_dmlp },
@@ -7399,8 +7474,13 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('v','p','c','C'), mov_read_vpcc },
 { MKTAG('m','d','c','v'), mov_read_mdcv },
 { MKTAG('c','l','l','i'), mov_read_clli },
+#ifdef AMFFMPEG
+{ MKTAG('d','v','c','C'), mov_read_dvcC },
+{ MKTAG('d','v','v','C'), mov_read_dvvC },
+#else
 { MKTAG('d','v','c','C'), mov_read_dvcc_dvvc },
 { MKTAG('d','v','v','C'), mov_read_dvcc_dvvc },
+#endif
 { 0, NULL }
 };
 

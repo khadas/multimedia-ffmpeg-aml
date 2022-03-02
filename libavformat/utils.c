@@ -4025,11 +4025,34 @@ FF_ENABLE_DEPRECATION_WARNINGS
             if (pkt->dts != pkt->pts && pkt->dts != AV_NOPTS_VALUE && pkt->pts != AV_NOPTS_VALUE)
                 st->internal->info->frame_delay_evidence = 1;
         }
-        if (!st->internal->avctx->extradata) {
-            ret = extract_extradata(st, pkt);
-            if (ret < 0)
-                goto unref_then_goto_end;
+#ifdef AMFFMPEG
+        if (st->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+            if (st->parser && st->parser->parser->split && !avctx->extradata) {
+                int i = st->parser->parser->split(avctx, pkt->data, pkt->size);
+                if (i > 0 && i < FF_MAX_EXTRADATA_SIZE) {
+                    avctx->extradata_size = i;
+                    avctx->extradata      = av_mallocz(avctx->extradata_size +
+                                                       AV_INPUT_BUFFER_PADDING_SIZE);
+                    if (!avctx->extradata)
+                        return AVERROR(ENOMEM);
+                    memcpy(avctx->extradata, pkt->data,
+                           avctx->extradata_size);
+                }
+            }
+        } else {
+            if (!st->internal->avctx->extradata) {
+                ret = extract_extradata(st, pkt);
+                if (ret < 0)
+                    goto unref_then_goto_end;
+            }
         }
+#else
+    if (!st->internal->avctx->extradata) {
+        ret = extract_extradata(st, pkt);
+        if (ret < 0)
+            goto unref_then_goto_end;
+    }
+#endif
 
         /* If still no information, we try to open the codec and to
          * decompress the frame. We try to avoid that in most cases as

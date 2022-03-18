@@ -11,6 +11,7 @@ FFMPEG_CFLAGS := \
     -Wno-sign-compare \
     -Wno-switch \
     -Wno-string-plus-int \
+    -Wno-implicit-function-declaration \
     -fPIC \
 
 ifeq ($(AMFFMPEG_VENDOR),true)

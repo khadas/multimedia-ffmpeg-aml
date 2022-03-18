@@ -843,7 +843,6 @@ libavformat/smush.c
 libavformat/sol.c 
 libavformat/soxdec.c 
 libavformat/soxenc.c 
-libavformat/spdif.c 
 libavformat/srtdec.c 
 libavformat/srtenc.c 
 libavformat/srtp.c 
@@ -1182,7 +1181,6 @@ libavcodec/dvdsubenc.c
 libavcodec/dxtory.c 
 libavcodec/dxv.c 
 libavcodec/dynamic_hdr10_plus.c 
-libavcodec/eac3_core_bsf.c 
 libavcodec/eacmv.c 
 libavcodec/eaidct.c 
 libavcodec/eamad.c 
@@ -1399,8 +1397,6 @@ libavcodec/mjpegdec_common.c
 libavcodec/mjpegenc.c 
 libavcodec/mjpegenc_common.c 
 libavcodec/mjpegenc_huffman.c 
-libavcodec/mlp.c 
-libavcodec/mlp_parse.c 
 libavcodec/mlz.c 
 libavcodec/mmvideo.c 
 libavcodec/mobiclip.c 
@@ -1641,7 +1637,6 @@ libavcodec/tiffenc.c
 libavcodec/tmv.c 
 libavcodec/tpeldsp.c 
 libavcodec/trace_headers_bsf.c 
-libavcodec/truehd_core_bsf.c 
 libavcodec/truemotion1.c 
 libavcodec/truemotion2.c 
 libavcodec/truemotion2rt.c 

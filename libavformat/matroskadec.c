@@ -426,11 +426,16 @@ typedef struct MatroskaDemuxContext {
 // incomplete type (6.7.2 in C90, 6.9.2 in C99).
 // Removing the sizes breaks MSVC.
 static EbmlSyntax ebml_syntax[3], matroska_segment[9], matroska_track_video_color[15], matroska_track_video[19],
-                  matroska_track[32], matroska_track_encoding[6], matroska_track_encodings[2],
+                  matroska_track_encoding[6], matroska_track_encodings[2],
                   matroska_track_combine_planes[2], matroska_track_operation[2], matroska_tracks[2],
                   matroska_attachments[2], matroska_chapter_entry[9], matroska_chapter[6], matroska_chapters[2],
                   matroska_index_entry[3], matroska_index[2], matroska_tag[3], matroska_tags[2], matroska_seekhead[2],
                   matroska_blockadditions[2], matroska_blockgroup[8], matroska_cluster_parsing[8];
+#ifdef AMFFMPEG
+static EbmlSyntax matroska_track[33];
+#else
+static EbmlSyntax matroska_track[32];
+#endif
 
 static EbmlSyntax ebml_header[] = {
     { EBML_ID_EBMLREADVERSION,    EBML_UINT, 0, 0, offsetof(Ebml, version),         { .u = EBML_VERSION } },

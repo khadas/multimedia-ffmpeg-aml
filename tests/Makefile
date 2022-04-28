@@ -284,7 +284,7 @@ testclean::
 
 -include $(wildcard tests/*.d)
 
-include $(SRC_PATH)/tests/checkasm/Makefile
+#include $(SRC_PATH)/tests/checkasm/Makefile
 
 .PHONY: fate* lcov lcov-reset
 .INTERMEDIATE: coverage.info

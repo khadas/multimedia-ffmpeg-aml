@@ -2445,18 +2445,29 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                    dovi->bl_present_flag,
                    dovi->dv_bl_signal_compatibility_id);
 #ifdef AMFFMPEG
-            if (dovi->dv_profile > 9) {
+            st->codec->has_dolby_vision_config_box = 1;
+            // profile == (0, 1, 9) --> AVC; profile = (2,3,4,5,6,7,8) --> HEVC; profile == (10) --> AV01;
+            if (dovi->dv_profile > 10) {
                 av_log(fc, AV_LOG_ERROR, "profile error:%x\n", dovi->dv_profile);
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+            }
+            st->codec->dolby_vision_profile = dovi->dv_profile;
+            st->codec->dolby_vision_level = dovi->dv_level;
+            if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
+                st->codec->dolby_vision_rpu_assoc = 1;
             } else {
-                st->codec->has_dolby_vision_config_box = 1;
-                st->codec->dolby_vision_profile = dovi->dv_profile;
-                st->codec->dolby_vision_level = dovi->dv_level;
-                if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
-                    st->codec->dolby_vision_rpu_assoc = 1;
-                } else {
-                    st->codec->dolby_vision_rpu_assoc = 0;
-                }
-                st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
+                st->codec->dolby_vision_rpu_assoc = 0;
+            }
+            st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
+            if (dovi->dv_bl_signal_compatibility_id != 0 &&
+                dovi->dv_bl_signal_compatibility_id != 1 &&
+                dovi->dv_bl_signal_compatibility_id != 2 &&
+                dovi->dv_bl_signal_compatibility_id != 4 &&
+                dovi->dv_bl_signal_compatibility_id != 6
+                ) {
+                av_log(fc, AV_LOG_ERROR, "bl_compatibility_id error:%x\n", dovi->dv_bl_signal_compatibility_id);
+                //ccid error, can't be played .
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
             }
 #endif
         }

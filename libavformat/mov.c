@@ -7279,6 +7279,10 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         );
 #ifdef AMFFMPEG
     st->codec->has_dolby_vision_config_box = dv_box_type;
+    if (dovi->dv_profile > 10) {
+        av_log(NULL,AV_LOG_WARNING,"mov, unknown dv profile %d",dovi->dv_profile);
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+    }
     st->codec->dolby_vision_profile = dovi->dv_profile;
     st->codec->dolby_vision_level = dovi->dv_level;
 

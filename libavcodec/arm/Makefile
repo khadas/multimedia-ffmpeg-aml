@@ -1,14 +1,11 @@
 ARCH_HEADERS = mathops.h
 
 # subsystems
-OBJS-$(CONFIG_AC3DSP)                  += arm/ac3dsp_init_arm.o         \
-                                          arm/ac3dsp_arm.o
 OBJS-$(CONFIG_AUDIODSP)                += arm/audiodsp_init_arm.o
 OBJS-$(CONFIG_BLOCKDSP)                += arm/blockdsp_init_arm.o
 OBJS-$(CONFIG_FFT)                     += arm/fft_init_arm.o
 OBJS-$(CONFIG_FLACDSP)                 += arm/flacdsp_init_arm.o        \
                                           arm/flacdsp_arm.o
-OBJS-$(CONFIG_FMTCONVERT)              += arm/fmtconvert_init_arm.o
 OBJS-$(CONFIG_G722DSP)                 += arm/g722dsp_init_arm.o
 OBJS-$(CONFIG_H264CHROMA)              += arm/h264chroma_init_arm.o
 OBJS-$(CONFIG_H264DSP)                 += arm/h264dsp_init_arm.o
@@ -37,7 +34,6 @@ OBJS-$(CONFIG_VP8DSP)                  += arm/vp8dsp_init_arm.o
 # decoders/encoders
 OBJS-$(CONFIG_AAC_DECODER)             += arm/aacpsdsp_init_arm.o       \
                                           arm/sbrdsp_init_arm.o
-OBJS-$(CONFIG_DCA_DECODER)             += arm/synth_filter_init_arm.o
 OBJS-$(CONFIG_HEVC_DECODER)            += arm/hevcdsp_init_arm.o
 OBJS-$(CONFIG_MLP_DECODER)             += arm/mlpdsp_init_arm.o
 OBJS-$(CONFIG_RV40_DECODER)            += arm/rv40dsp_init_arm.o
@@ -66,7 +62,6 @@ ARMV5TE-OBJS-$(CONFIG_TRUEHD_DECODER)  += arm/mlpdsp_armv5te.o
 
 # ARMv6 optimizations
 # subsystems
-ARMV6-OBJS-$(CONFIG_AC3DSP)            += arm/ac3dsp_armv6.o
 ARMV6-OBJS-$(CONFIG_HPELDSP)           += arm/hpeldsp_init_armv6.o      \
                                           arm/hpeldsp_armv6.o
 ARMV6-OBJS-$(CONFIG_IDCTDSP)           += arm/idctdsp_init_armv6.o      \
@@ -91,24 +86,20 @@ ARMV6-OBJS-$(CONFIG_TRUEHD_DECODER)    += arm/mlpdsp_armv6.o
 
 # subsystems
 VFP-OBJS-$(CONFIG_FFT)                 += arm/fft_vfp.o
-VFP-OBJS-$(CONFIG_FMTCONVERT)          += arm/fmtconvert_vfp.o
 VFP-OBJS-$(CONFIG_MDCT)                += arm/mdct_vfp.o
 
 # decoders/encoders
-VFP-OBJS-$(CONFIG_DCA_DECODER)         += arm/synth_filter_vfp.o
 
 
 # NEON optimizations
 
 # subsystems
-NEON-OBJS-$(CONFIG_AC3DSP)             += arm/ac3dsp_neon.o
 NEON-OBJS-$(CONFIG_AUDIODSP)           += arm/audiodsp_init_neon.o      \
                                           arm/audiodsp_neon.o           \
                                           arm/int_neon.o
 NEON-OBJS-$(CONFIG_BLOCKDSP)           += arm/blockdsp_init_neon.o      \
                                           arm/blockdsp_neon.o
 NEON-OBJS-$(CONFIG_FFT)                += arm/fft_neon.o
-NEON-OBJS-$(CONFIG_FMTCONVERT)         += arm/fmtconvert_neon.o
 NEON-OBJS-$(CONFIG_G722DSP)            += arm/g722dsp_neon.o
 NEON-OBJS-$(CONFIG_H264CHROMA)         += arm/h264cmc_neon.o
 NEON-OBJS-$(CONFIG_H264DSP)            += arm/h264dsp_neon.o            \
@@ -135,7 +126,6 @@ NEON-OBJS-$(CONFIG_VP8DSP)             += arm/vp8dsp_init_neon.o        \
 NEON-OBJS-$(CONFIG_AAC_DECODER)        += arm/aacpsdsp_neon.o           \
                                           arm/sbrdsp_neon.o
 NEON-OBJS-$(CONFIG_LLAUDDSP)           += arm/lossless_audiodsp_neon.o
-NEON-OBJS-$(CONFIG_DCA_DECODER)        += arm/synth_filter_neon.o
 NEON-OBJS-$(CONFIG_HEVC_DECODER)       += arm/hevcdsp_init_neon.o       \
                                           arm/hevcdsp_deblock_neon.o    \
                                           arm/hevcdsp_idct_neon.o       \

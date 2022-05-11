@@ -32,6 +32,7 @@ ALLFFLIBS = avcodec avdevice avfilter avformat avresample avutil postproc swscal
 IFLAGS     := -I. -I$(SRC_LINK)/
 CPPFLAGS   := $(IFLAGS) $(CPPFLAGS)
 CFLAGS     += $(ECFLAGS)
+CFLAGS     := $(filter-out -Werror=missing-prototypes -Werror=implicit-function-declaration, $(CFLAGS))
 CCFLAGS     = $(CPPFLAGS) $(CFLAGS)
 OBJCFLAGS  += $(EOBJCFLAGS)
 OBJCCFLAGS  = $(CPPFLAGS) $(CFLAGS) $(OBJCFLAGS)

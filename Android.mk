@@ -14,10 +14,6 @@ FFMPEG_CFLAGS := \
     -Wno-implicit-function-declaration \
     -fPIC \
 
-ifeq ($(AMFFMPEG_VENDOR),true)
-FFMPEG_CFLAGS += -DAMFFMPEG_VENDOR
-endif
-
 FFMPEG_LDFLAGS := -Wl,--as-needed -Wl,-Bsymbolic -lm 
 
 $(warning "Define TARGET_ARCH: " $(TARGET_ARCH))

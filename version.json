@@ -1,0 +1,16 @@
+{
+    "version" : {
+        "major" : 4,
+        "minor" : 4,
+        "amlogicver" : 2,
+        "commit" : "2fac8502e57bf00f326f15f2d9a699e04a799aed",
+        "header" : "version.h"
+    },
+    "history" : [
+        {
+            "versionStr" : "V4.4.1",
+            "Release_CommitId" : "4cce651f64fa9056b995f14ff9b65333831a32cb",
+            "Base_CommitID" : "5e3d72219d64b94edddc4f2e81072d49123da3a5"
+        }
+    ]
+}

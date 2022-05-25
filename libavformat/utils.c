@@ -5999,3 +5999,12 @@ FF_DISABLE_DEPRECATION_WARNINGS
 FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 }
+
+#ifdef FF_VERSION_STRING
+
+const char * ff_get_global_version_str() {
+    av_log(NULL,AV_LOG_INFO,"%s",kFFmpegVersionStr);
+    return FF_VERSION_STRING;
+}
+
+#endif

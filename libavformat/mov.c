@@ -3931,7 +3931,11 @@ static void mov_fix_index(MOVContext *mov, AVStream *st)
             // Audio decoders like AAC need need a decoder delay samples previous to the current sample,
             // to correctly decode this frame. Hence for audio we seek to a frame 1 sec. before the
             // edit_list_media_time to cover the decoder delay.
+#ifdef AMFFMPEG
+            //search_timestamp = FFMAX(search_timestamp - msc->time_scale, e_old[0].timestamp);
+#else
             search_timestamp = FFMAX(search_timestamp - msc->time_scale, e_old[0].timestamp);
+#endif
         }
 
         if (find_prev_closest_index(st, e_old, nb_old, ctts_data_old, ctts_count_old, search_timestamp, 0,

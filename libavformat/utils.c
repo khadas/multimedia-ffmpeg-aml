@@ -2365,6 +2365,15 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
             pos_limit = start_pos - 1;
             pos_max   = pos;
             ts_max    = ts;
+#ifdef AMFFMPEG
+            // keyframe found after interpolate position, exit keyframe search in this case.
+            AVStream *st = s->streams[stream_index];
+            if ((st->codecpar->width * st->codecpar->height > 3840 * 2160)
+                && !strcmp(s->iformat->name, "mpegts")
+                && (flags ^ AVSEEK_FLAG_BACKWARD)) {
+                break;
+            }
+#endif
         }
         if (target_ts >= ts) {
             pos_min = pos;

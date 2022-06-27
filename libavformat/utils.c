@@ -1567,6 +1567,12 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
         if (ret < 0) {
             if (ret == AVERROR(EAGAIN))
                 return ret;
+#ifdef AMFFMPEG
+            if (ret == AVERROR_EOF) {
+                av_log(s, AV_LOG_ERROR, "EOF Found\n");
+                return ret;
+            }
+#endif
             /* flush the parsers */
             for (i = 0; i < s->nb_streams; i++) {
                 st = s->streams[i];

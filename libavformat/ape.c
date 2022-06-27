@@ -396,8 +396,13 @@ static int ape_read_packet(AVFormatContext * s, AVPacket * pkt)
     else
         nblocks = ape->blocksperframe;
 
+#ifdef AMFFMPEG
     if (ape->frames[ape->currentframe].size <= 0 ||
         ape->frames[ape->currentframe].size > APE_MAX_DECODE_BUFFER_SIZE - extra_size) {
+#else
+    if (ape->frames[ape->currentframe].size <= 0 ||
+        ape->frames[ape->currentframe].size > INT_MAX - extra_size) {
+#endif
         av_log(s, AV_LOG_ERROR, "invalid packet size: %d\n",
                ape->frames[ape->currentframe].size);
         ape->currentframe++;

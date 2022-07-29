@@ -167,7 +167,6 @@ static const AVInputFormat * const demuxer_list[] = {
     &ff_mpegtsraw_demuxer,
     &ff_mpegvideo_demuxer,
     &ff_mpjpeg_demuxer,
-    &ff_mpl2_demuxer,
     &ff_mpsub_demuxer,
     &ff_msf_demuxer,
     &ff_msnwc_tcp_demuxer,

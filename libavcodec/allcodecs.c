@@ -675,7 +675,6 @@ extern AVCodec ff_jacosub_decoder;
 extern AVCodec ff_microdvd_decoder;
 extern AVCodec ff_movtext_encoder;
 extern AVCodec ff_movtext_decoder;
-extern AVCodec ff_mpl2_decoder;
 extern AVCodec ff_pgssub_decoder;
 extern AVCodec ff_pjs_decoder;
 extern AVCodec ff_realtext_decoder;

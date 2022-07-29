@@ -581,7 +581,6 @@ static const AVCodec * const codec_list[] = {
     &ff_jacosub_decoder,
     &ff_microdvd_decoder,
     &ff_movtext_decoder,
-    &ff_mpl2_decoder,
     &ff_pgssub_decoder,
     &ff_pjs_decoder,
     &ff_realtext_decoder,

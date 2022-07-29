@@ -3360,13 +3360,6 @@ static const AVCodecDescriptor codec_descriptors[] = {
         .props     = AV_CODEC_PROP_TEXT_SUB,
     },
     {
-        .id        = AV_CODEC_ID_MPL2,
-        .type      = AVMEDIA_TYPE_SUBTITLE,
-        .name      = "mpl2",
-        .long_name = NULL_IF_CONFIG_SMALL("MPL2 subtitle"),
-        .props     = AV_CODEC_PROP_TEXT_SUB,
-    },
-    {
         .id        = AV_CODEC_ID_VPLAYER,
         .type      = AVMEDIA_TYPE_SUBTITLE,
         .name      = "vplayer",

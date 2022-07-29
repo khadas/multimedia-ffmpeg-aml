@@ -285,7 +285,6 @@ extern AVInputFormat  ff_mpegtsraw_demuxer;
 extern AVInputFormat  ff_mpegvideo_demuxer;
 extern AVInputFormat  ff_mpjpeg_demuxer;
 extern AVOutputFormat ff_mpjpeg_muxer;
-extern AVInputFormat  ff_mpl2_demuxer;
 extern AVInputFormat  ff_mpsub_demuxer;
 extern AVInputFormat  ff_msf_demuxer;
 extern AVInputFormat  ff_msnwc_tcp_demuxer;

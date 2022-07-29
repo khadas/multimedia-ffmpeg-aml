@@ -684,7 +684,6 @@ libavformat/mpegtsenc.c
 libavformat/mpegvideodec.c 
 libavformat/mpjpeg.c 
 libavformat/mpjpegdec.c 
-libavformat/mpl2dec.c 
 libavformat/mpsubdec.c 
 libavformat/msf.c 
 libavformat/msnwc_tcp.c 
@@ -923,7 +922,6 @@ libavformat/xwma.c
 libavformat/yop.c 
 libavformat/yuv4mpegdec.c 
 libavformat/yuv4mpegenc.c 
-libavformat/avisynth.c 
 libavformat/dtsdec.c 
 libavformat/dtshddec.c 
 libavformat/ac3dec.c 
@@ -1503,7 +1501,6 @@ libavcodec/mpegvideo_parser.c
 libavcodec/mpegvideodata.c 
 libavcodec/mpegvideodsp.c 
 libavcodec/mpegvideoencdsp.c 
-libavcodec/mpl2dec.c 
 libavcodec/mqc.c 
 libavcodec/mqcdec.c 
 libavcodec/mqcenc.c 

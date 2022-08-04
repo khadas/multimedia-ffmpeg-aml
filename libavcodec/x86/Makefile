@@ -163,9 +163,6 @@ X86ASM-OBJS-$(CONFIG_DIRAC_DECODER)    += x86/diracdsp.o                \
 X86ASM-OBJS-$(CONFIG_DNXHD_ENCODER)    += x86/dnxhdenc.o
 X86ASM-OBJS-$(CONFIG_EXR_DECODER)      += x86/exrdsp.o
 X86ASM-OBJS-$(CONFIG_FLAC_DECODER)     += x86/flacdsp.o
-ifdef CONFIG_GPL
-X86ASM-OBJS-$(CONFIG_FLAC_ENCODER)     += x86/flac_dsp_gpl.o
-endif
 X86ASM-OBJS-$(CONFIG_HEVC_DECODER)     += x86/hevc_add_res.o            \
                                           x86/hevc_deblock.o            \
                                           x86/hevc_idct.o               \

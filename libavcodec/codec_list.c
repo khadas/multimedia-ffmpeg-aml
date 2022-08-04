@@ -342,7 +342,6 @@ static const AVCodec * const codec_list[] = {
     &ff_tiertexseqvideo_decoder,
     &ff_tiff_decoder,
     &ff_tmv_decoder,
-    &ff_truemotion1_decoder,
     &ff_truemotion2_decoder,
     &ff_truemotion2rt_decoder,
     &ff_tscc2_decoder,

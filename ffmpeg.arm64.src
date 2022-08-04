@@ -150,7 +150,6 @@ libavfilter/log2_tab.c
 libavfilter/lswsutils.c 
 libavfilter/motion_estimation.c 
 libavfilter/pthread.c 
-libavfilter/qp_table.c 
 libavfilter/scale_eval.c 
 libavfilter/scene_sad.c 
 libavfilter/setpts.c 
@@ -178,7 +177,6 @@ libavfilter/vf_chromakey.c
 libavfilter/vf_chromanr.c 
 libavfilter/vf_chromashift.c 
 libavfilter/vf_ciescope.c 
-libavfilter/vf_codecview.c 
 libavfilter/vf_colorbalance.c 
 libavfilter/vf_colorchannelmixer.c 
 libavfilter/vf_colorconstancy.c 
@@ -1634,7 +1632,6 @@ libavcodec/tiffenc.c
 libavcodec/tmv.c 
 libavcodec/tpeldsp.c 
 libavcodec/trace_headers_bsf.c 
-libavcodec/truemotion1.c 
 libavcodec/truemotion2.c 
 libavcodec/truemotion2rt.c 
 libavcodec/truespeech.c 

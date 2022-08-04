@@ -49,40 +49,4 @@ void ff_rg_fl_mode_24_sse2(uint8_t *dst, uint8_t *src, ptrdiff_t stride, int pix
 
 av_cold void ff_removegrain_init_x86(RemoveGrainContext *rg)
 {
-#if CONFIG_GPL
-    int cpu_flags = av_get_cpu_flags();
-    int i;
-
-    for (i = 0; i < rg->nb_planes; i++) {
-        if (EXTERNAL_SSE2(cpu_flags))
-            switch (rg->mode[i]) {
-                case 1: rg->fl[i] = ff_rg_fl_mode_1_sse2; break;
-                case 10: rg->fl[i] = ff_rg_fl_mode_10_sse2; break;
-                case 11: /* fall through */
-                case 12: rg->fl[i] = ff_rg_fl_mode_11_12_sse2; break;
-                case 13: /* fall through */
-                case 14: rg->fl[i] = ff_rg_fl_mode_13_14_sse2; break;
-                case 19: rg->fl[i] = ff_rg_fl_mode_19_sse2; break;
-                case 20: rg->fl[i] = ff_rg_fl_mode_20_sse2; break;
-                case 21: rg->fl[i] = ff_rg_fl_mode_21_sse2; break;
-                case 22: rg->fl[i] = ff_rg_fl_mode_22_sse2; break;
-#if ARCH_X86_64
-                case 2: rg->fl[i] = ff_rg_fl_mode_2_sse2; break;
-                case 3: rg->fl[i] = ff_rg_fl_mode_3_sse2; break;
-                case 4: rg->fl[i] = ff_rg_fl_mode_4_sse2; break;
-                case 5: rg->fl[i] = ff_rg_fl_mode_5_sse2; break;
-                case 6: rg->fl[i] = ff_rg_fl_mode_6_sse2; break;
-                case 7: rg->fl[i] = ff_rg_fl_mode_7_sse2; break;
-                case 8: rg->fl[i] = ff_rg_fl_mode_8_sse2; break;
-                case 9: rg->fl[i] = ff_rg_fl_mode_9_sse2; break;
-                case 15: /* fall through */
-                case 16: rg->fl[i] = ff_rg_fl_mode_15_16_sse2; break;
-                case 17: rg->fl[i] = ff_rg_fl_mode_17_sse2; break;
-                case 18: rg->fl[i] = ff_rg_fl_mode_18_sse2; break;
-                case 23: rg->fl[i] = ff_rg_fl_mode_23_sse2; break;
-                case 24: rg->fl[i] = ff_rg_fl_mode_24_sse2; break;
-#endif /* ARCH_x86_64 */
-            }
-    }
-#endif /* CONFIG_GPL */
 }

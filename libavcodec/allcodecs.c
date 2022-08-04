@@ -317,7 +317,6 @@ extern AVCodec ff_tiertexseqvideo_decoder;
 extern AVCodec ff_tiff_encoder;
 extern AVCodec ff_tiff_decoder;
 extern AVCodec ff_tmv_decoder;
-extern AVCodec ff_truemotion1_decoder;
 extern AVCodec ff_truemotion2_decoder;
 extern AVCodec ff_truemotion2rt_decoder;
 extern AVCodec ff_tscc_decoder;

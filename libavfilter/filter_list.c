@@ -141,7 +141,6 @@ static const AVFilter * const filter_list[] = {
     &ff_vf_chromanr,
     &ff_vf_chromashift,
     &ff_vf_ciescope,
-    &ff_vf_codecview,
     &ff_vf_colorbalance,
     &ff_vf_colorchannelmixer,
     &ff_vf_colorcontrast,

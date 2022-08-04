@@ -63,9 +63,6 @@ X86ASM-OBJS-$(CONFIG_OVERLAY_FILTER)         += x86/vf_overlay.o
 X86ASM-OBJS-$(CONFIG_PP7_FILTER)             += x86/vf_pp7.o
 X86ASM-OBJS-$(CONFIG_PSNR_FILTER)            += x86/vf_psnr.o
 X86ASM-OBJS-$(CONFIG_PULLUP_FILTER)          += x86/vf_pullup.o
-ifdef CONFIG_GPL
-X86ASM-OBJS-$(CONFIG_REMOVEGRAIN_FILTER)     += x86/vf_removegrain.o
-endif
 X86ASM-OBJS-$(CONFIG_SHOWCQT_FILTER)         += x86/avf_showcqt.o
 X86ASM-OBJS-$(CONFIG_SSIM_FILTER)            += x86/vf_ssim.o
 X86ASM-OBJS-$(CONFIG_STEREO3D_FILTER)        += x86/vf_stereo3d.o

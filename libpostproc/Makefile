@@ -2,8 +2,7 @@ NAME = postproc
 DESC = FFmpeg postprocessing library
 FFLIBS = avutil
 
-HEADERS = postprocess.h        \
-          version.h            \
+HEADERS =  version.h            \
 
 OBJS = postprocess.o
 

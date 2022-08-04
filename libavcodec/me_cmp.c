@@ -668,60 +668,6 @@ static int dct_sad8x8_c(MpegEncContext *s, uint8_t *src1,
     return s->mecc.sum_abs_dctelem(temp);
 }
 
-#if CONFIG_GPL
-#define DCT8_1D                                         \
-    {                                                   \
-        const int s07 = SRC(0) + SRC(7);                \
-        const int s16 = SRC(1) + SRC(6);                \
-        const int s25 = SRC(2) + SRC(5);                \
-        const int s34 = SRC(3) + SRC(4);                \
-        const int a0  = s07 + s34;                      \
-        const int a1  = s16 + s25;                      \
-        const int a2  = s07 - s34;                      \
-        const int a3  = s16 - s25;                      \
-        const int d07 = SRC(0) - SRC(7);                \
-        const int d16 = SRC(1) - SRC(6);                \
-        const int d25 = SRC(2) - SRC(5);                \
-        const int d34 = SRC(3) - SRC(4);                \
-        const int a4  = d16 + d25 + (d07 + (d07 >> 1)); \
-        const int a5  = d07 - d34 - (d25 + (d25 >> 1)); \
-        const int a6  = d07 + d34 - (d16 + (d16 >> 1)); \
-        const int a7  = d16 - d25 + (d34 + (d34 >> 1)); \
-        DST(0, a0 + a1);                                \
-        DST(1, a4 + (a7 >> 2));                         \
-        DST(2, a2 + (a3 >> 1));                         \
-        DST(3, a5 + (a6 >> 2));                         \
-        DST(4, a0 - a1);                                \
-        DST(5, a6 - (a5 >> 2));                         \
-        DST(6, (a2 >> 1) - a3);                         \
-        DST(7, (a4 >> 2) - a7);                         \
-    }
-
-static int dct264_sad8x8_c(MpegEncContext *s, uint8_t *src1,
-                           uint8_t *src2, ptrdiff_t stride, int h)
-{
-    int16_t dct[8][8];
-    int i, sum = 0;
-
-    s->pdsp.diff_pixels_unaligned(dct[0], src1, src2, stride);
-
-#define SRC(x) dct[i][x]
-#define DST(x, v) dct[i][x] = v
-    for (i = 0; i < 8; i++)
-        DCT8_1D
-#undef SRC
-#undef DST
-
-#define SRC(x) dct[x][i]
-#define DST(x, v) sum += FFABS(v)
-        for (i = 0; i < 8; i++)
-            DCT8_1D
-#undef SRC
-#undef DST
-            return sum;
-}
-#endif
-
 static int dct_max8x8_c(MpegEncContext *s, uint8_t *src1,
                         uint8_t *src2, ptrdiff_t stride, int h)
 {
@@ -1004,9 +950,6 @@ static int name16(MpegEncContext *s, uint8_t *dst, uint8_t *src,        \
 WRAPPER8_16_SQ(hadamard8_diff8x8_c, hadamard8_diff16_c)
 WRAPPER8_16_SQ(hadamard8_intra8x8_c, hadamard8_intra16_c)
 WRAPPER8_16_SQ(dct_sad8x8_c, dct_sad16_c)
-#if CONFIG_GPL
-WRAPPER8_16_SQ(dct264_sad8x8_c, dct264_sad16_c)
-#endif
 WRAPPER8_16_SQ(dct_max8x8_c, dct_max16_c)
 WRAPPER8_16_SQ(quant_psnr8x8_c, quant_psnr16_c)
 WRAPPER8_16_SQ(rd8x8_c, rd16_c)
@@ -1035,9 +978,6 @@ av_cold void ff_me_cmp_init(MECmpContext *c, AVCodecContext *avctx)
     c->hadamard8_diff[5] = hadamard8_intra8x8_c;
     SET_CMP_FUNC(dct_sad)
     SET_CMP_FUNC(dct_max)
-#if CONFIG_GPL
-    SET_CMP_FUNC(dct264_sad)
-#endif
     c->sad[0] = pix_abs16_c;
     c->sad[1] = pix_abs8_c;
     c->sse[0] = sse16_c;

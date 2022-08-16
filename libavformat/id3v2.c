@@ -291,24 +291,24 @@ static int decode_str(AVFormatContext *s, AVIOContext *pb, int encoding,
         int len = left / 2;
         int tlen = left;
         int eightBit = 1;
-        uint16_t *framedata = malloc(left+1);
-        memset(framedata, 0, left+1);
+        uint16_t *frame_data = malloc(left+1);
+        memset(frame_data, 0, left+1);
         for (i = 0; i < len; i++) {
-            framedata[i] = get(pb);
+            frame_data[i] = get(pb);
             left -= 2;
-            if (framedata[i] > 0xff) {
+            if (frame_data[i] > 0xff) {
                 eightBit = 0;
             }
         }
         if (eightBit) {
             for (i = 0; i < len; i++) {
-                avio_w8(dynbuf, framedata[i]);
+                avio_w8(dynbuf, frame_data[i]);
             }
-            free(framedata);
+            free(frame_data);
             break;
         }
         else {
-            free(framedata);
+            free(frame_data);
             left = tlen - left;
             avio_seek(pb, -left, SEEK_CUR);
         }

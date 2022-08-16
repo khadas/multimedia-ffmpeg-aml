@@ -337,7 +337,7 @@ typedef struct AVIOContext {
      */
     int (*short_seek_get)(void *opaque);
 #ifdef AMFFMPEG
-    int mediascan_flag;
+    int media_scan_flag;
 #endif
     int64_t written;
 

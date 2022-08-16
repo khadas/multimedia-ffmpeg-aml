@@ -267,7 +267,7 @@ typedef struct MatroskaTrack {
     MatroskaTrackAudio audio;
     MatroskaTrackOperation operation;
 #ifdef AMFFMPEG
-    BlockAdditionMapping blockadditionmapping;
+    BlockAdditionMapping block_addition_mapping;
 #endif
     EbmlList encodings;
     uint64_t codec_delay;
@@ -568,8 +568,8 @@ static EbmlSyntax matroska_track_encodings[] = {
 
 #ifdef AMFFMPEG
 static EbmlSyntax matroska_block_addition_mapping[] = {
-    { MATROSKA_ID_BLOCKADDIDTYPE, EBML_UINT, 0, 0, offsetof(BlockAdditionMapping,block_add_id_value)  },
-    { MATROSKA_ID_BLOCKADDIDEXTRADATA, EBML_BIN, 0, 0, offsetof(BlockAdditionMapping,block_add_id_extradata) },
+    { MATROSKA_ID_BLOCK_ADD_ID_TYPE, EBML_UINT, 0, 0, offsetof(BlockAdditionMapping,block_add_id_value)  },
+    { MATROSKA_ID_BLOCK_ADD_ID_EXTRADATA, EBML_BIN, 0, 0, offsetof(BlockAdditionMapping,block_add_id_extradata) },
     { 0 }
 };
 #endif
@@ -623,7 +623,7 @@ static EbmlSyntax matroska_track[] = {
     { MATROSKA_ID_TRACKMINCACHE,         EBML_NONE },
     { MATROSKA_ID_TRACKMAXCACHE,         EBML_NONE },
 #ifdef AMFFMPEG
-    { MATROSKA_ID_BLOCKADDITIONMAPPING,  EBML_NEST,  0, 0, offsetof(MatroskaTrack,blockadditionmapping), { .n = matroska_block_addition_mapping } },
+    { MATROSKA_ID_BLOCK_ADDITION_MAPPING,  EBML_NEST,  0, 0, offsetof(MatroskaTrack,block_addition_mapping), { .n = matroska_block_addition_mapping } },
 #endif
     CHILD_OF(matroska_tracks)
 };
@@ -2362,15 +2362,15 @@ static int get_qt_codec(MatroskaTrack *track, uint32_t *fourcc, enum AVCodecID *
 #ifdef AMFFMPEG
 static void  matroska_parse_dv(AVStream *st,MatroskaTrack *track){
     st->codec->has_dolby_vision_config_box = 1;
-    uint8_t profile = track->blockadditionmapping.block_add_id_extradata.data[2] >> 1;
-    uint8_t level = ((track->blockadditionmapping.block_add_id_extradata.data[2] & 0x1) << 5) | ((track->blockadditionmapping.block_add_id_extradata.data[3] >> 3) & 0x1f);
-    const uint8_t rpu_present_flag = (track->blockadditionmapping.block_add_id_extradata.data[3] >> 2) & 0x01;
-    const uint8_t el_present_flag = (track->blockadditionmapping.block_add_id_extradata.data[3] >> 1) & 0x01;
-    const uint8_t bl_present_flag = (track->blockadditionmapping.block_add_id_extradata.data[3] & 0x01);
+    uint8_t profile = track->block_addition_mapping.block_add_id_extradata.data[2] >> 1;
+    uint8_t level = ((track->block_addition_mapping.block_add_id_extradata.data[2] & 0x1) << 5) | ((track->block_addition_mapping.block_add_id_extradata.data[3] >> 3) & 0x1f);
+    const uint8_t rpu_present_flag = (track->block_addition_mapping.block_add_id_extradata.data[3] >> 2) & 0x01;
+    const uint8_t el_present_flag = (track->block_addition_mapping.block_add_id_extradata.data[3] >> 1) & 0x01;
+    const uint8_t bl_present_flag = (track->block_addition_mapping.block_add_id_extradata.data[3] & 0x01);
 
     int32_t bl_compatibility_id = 0;
-    if (track->blockadditionmapping.block_add_id_extradata.size >= 4) {
-        bl_compatibility_id = (int32_t)(track->blockadditionmapping.block_add_id_extradata.data[4] >> 4);
+    if (track->block_addition_mapping.block_add_id_extradata.size >= 4) {
+        bl_compatibility_id = (int32_t)(track->block_addition_mapping.block_add_id_extradata.data[4] >> 4);
     }
     st->codec->has_dolby_vision_config_box = 1;
     st->codec->dolby_vision_profile = profile;
@@ -2385,7 +2385,7 @@ static void  matroska_parse_dv(AVStream *st,MatroskaTrack *track){
     if (profile == 8 || profile == 9) {
         st->codec->dolby_vision_bl_compat_id = bl_compatibility_id;
      }
-    av_log(NULL, AV_LOG_INFO,"codec_tag=0x%x,has_dolby_vision_config_box=%d,extracdata size=%d",st->codecpar->codec_tag,st->codec->has_dolby_vision_config_box,track->blockadditionmapping.block_add_id_extradata.size);
+    av_log(NULL, AV_LOG_INFO,"codec_tag=0x%x,has_dolby_vision_config_box=%d,extradata size=%d",st->codecpar->codec_tag,st->codec->has_dolby_vision_config_box,track->block_addition_mapping.block_add_id_extradata.size);
 
 }
 #endif
@@ -2840,11 +2840,11 @@ static int matroska_parse_tracks(AVFormatContext *s)
 
             st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 #ifdef AMFFMPEG
-            if (track->blockadditionmapping.block_add_id_value == MATROSKA_ADD_ID_TYPE_DVVC) {
+            if (track->block_addition_mapping.block_add_id_value == MATROSKA_ADD_ID_TYPE_DVVC) {
                 st->codecpar->codec_tag = MKTAG('d', 'v', 'v', 'c');
                 matroska_parse_dv(st,track);
             }
-            else if (track->blockadditionmapping.block_add_id_value  == MATROSKA_ADD_ID_TYPE_DVCC){
+            else if (track->block_addition_mapping.block_add_id_value  == MATROSKA_ADD_ID_TYPE_DVCC){
                 st->codecpar->codec_tag = MKTAG('d', 'v', 'c', 'c');
                 matroska_parse_dv(st,track);
             }
@@ -3723,9 +3723,13 @@ static int matroska_parse_block(MatroskaDemuxContext *matroska, AVBufferRef *buf
         is_keyframe = flags & 0x80 ? AV_PKT_FLAG_KEY : 0;
 
     if (cluster_time != (uint64_t) -1 &&
+#ifdef AMFFMPEG
         // Add " || track.type == MATROSKA_TRACK_TYPE_AUDIO" for :
         //    android.media.cts.DecoderTest#testTrackSelectionMkv
         (block_time >= 0 || cluster_time >= -block_time || track->type == MATROSKA_TRACK_TYPE_AUDIO)) {
+#else
+        (block_time >= 0 || cluster_time >= -block_time)) {
+#endif
         uint64_t timecode_cluster_in_track_tb = (double) cluster_time / track->time_scale;
         timecode = timecode_cluster_in_track_tb + block_time - track->codec_delay_in_track_tb;
         if (track->type == MATROSKA_TRACK_TYPE_SUBTITLE &&

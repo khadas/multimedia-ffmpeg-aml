@@ -1049,6 +1049,7 @@ static int mpegts_set_stream_info(AVStream *st, PESContext *pes,
         st->codecpar->codec_id   = AV_CODEC_ID_BIN_DATA;
         st->internal->request_probe = AVPROBE_SCORE_STREAM_RETRY / 5;
     }
+#ifdef AMFFMPEG
     if ((st->internal->request_probe> 0 && st->internal->request_probe < AVPROBE_SCORE_STREAM_RETRY / 5) &&
         st->probe_packets > 0 &&
         stream_type == 0x86) {
@@ -1056,7 +1057,7 @@ static int mpegts_set_stream_info(AVStream *st, PESContext *pes,
         st->codecpar->codec_id   = AV_CODEC_ID_SCTE_35;
         st->internal->request_probe = AVPROBE_SCORE_STREAM_RETRY / 5;
     }
-
+#endif
     /* queue a context update if properties changed */
     if (old_codec_type != st->codecpar->codec_type ||
         old_codec_id   != st->codecpar->codec_id   ||
@@ -2466,7 +2467,7 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                 dovi->dv_bl_signal_compatibility_id != 6
                 ) {
                 av_log(fc, AV_LOG_ERROR, "bl_compatibility_id error:%x\n", dovi->dv_bl_signal_compatibility_id);
-                //ccid error, can't be played .
+                //dv_bl_signal_compatibility_id error, can't be played .
                 st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
             }
 #endif

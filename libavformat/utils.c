@@ -77,7 +77,7 @@ const char *avformat_license(void)
 }
 
 #ifdef AMFFMPEG
-int64_t avformat_getcurtime_us(void)
+int64_t avformat_get_now_us(void)
 {
     struct timespec timeval;
     clock_gettime(CLOCK_MONOTONIC, &timeval);
@@ -1550,14 +1550,14 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
     int ret, i, got_packet = 0;
     AVDictionary *metadata = NULL;
 #ifdef AMFFMPEG
-    int64_t first_timeval = avformat_getcurtime_us();
+    int64_t first_timeval = avformat_get_now_us();
 #endif
 
     while (!got_packet && !s->internal->parse_queue) {
         AVStream *st;
 #ifdef AMFFMPEG
-        if (s->pb && s->pb->mediascan_flag) {
-            if (avformat_getcurtime_us() > (first_timeval + s->max_analyze_duration)) {
+        if (s->pb && s->pb->media_scan_flag) {
+            if (avformat_get_now_us() > (first_timeval + s->max_analyze_duration)) {
                 return -1;
             }
         }
@@ -3660,7 +3660,7 @@ static int add_coded_side_data(AVStream *st, AVCodecContext *avctx)
 #ifdef AMFFMPEG
 static int avformat_check_dv_meta_el(AVFormatContext *ic, AVStream *st, const uint8_t *buf,int buf_size)
 {
-    int nalsize = 0, naltype = 0;
+    int nal_size = 0, naltype = 0;
     const uint8_t *next_avc = buf;
     int ret = 0;
 
@@ -3682,18 +3682,18 @@ static int avformat_check_dv_meta_el(AVFormatContext *ic, AVStream *st, const ui
         if (next_avc[0] != 0 || next_avc[1] != 0)
             return 0;
         next_avc += 2; //skip 0 0
-        nalsize = (next_avc[0] << 8)| next_avc[1];
-        if (nalsize < 0)
+        nal_size = (next_avc[0] << 8)| next_avc[1];
+        if (nal_size < 0)
             return 0;
         next_avc = next_avc + 2; //skip size
         naltype = next_avc[0];
-        av_log(ic, AV_LOG_DEBUG, "naltype:%x size:d\n", naltype, nalsize);
+        av_log(ic, AV_LOG_DEBUG, "naltype:%x size:d\n", naltype, nal_size);
         if (naltype == 0x7c) {
             st->internal->avctx->has_dolby_vision_meta = 1;
         } else if ( naltype == 0x7e) {
             st->internal->avctx->has_dolby_vision_el = 1;
         }
-        next_avc = next_avc + nalsize; //skip data
+        next_avc = next_avc + nal_size; //skip data
     }
 
     return ret;

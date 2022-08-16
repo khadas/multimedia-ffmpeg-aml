@@ -47,7 +47,7 @@ static void set_codec_params(AVCodecContext *avctx,AACAC3ParseContext *s) {
 #endif
 int ff_aac_ac3_parse(AVCodecParserContext *s1,
                      AVCodecContext *avctx,
-                     const uint8_t **poutbuf, int *poutbuf_size,
+                     const uint8_t **p_out_buf, int *poutbuf_size,
                      const uint8_t *buf, int buf_size)
 {
     AACAC3ParseContext *s = s1->priv_data;
@@ -99,7 +99,7 @@ get_next:
             if (avctx->codec_id != AV_CODEC_ID_AAC) {
                 avctx->sample_rate = s->sample_rate;
 
-                /* (E-)AC-3: allow downmixing to stereo or mono */
+                /* (E-)AC-3: allow down mixing to stereo or mono */
                 if (s->channels > 1 &&
                     avctx->request_channel_layout == AV_CH_LAYOUT_MONO) {
                     avctx->channels       = 1;
@@ -123,7 +123,7 @@ get_next:
 #endif
     if(ff_combine_frame(pc, i, &buf, &buf_size)<0){
         s->remaining_size -= FFMIN(s->remaining_size, buf_size);
-        *poutbuf = NULL;
+        *p_out_buf = NULL;
         *poutbuf_size = 0;
 #ifdef AMFFMPEG
         set_codec_params(avctx,s);
@@ -131,7 +131,7 @@ get_next:
         return buf_size;
     }
 
-    *poutbuf = buf;
+    *p_out_buf = buf;
     *poutbuf_size = buf_size;
 
 #ifdef AMFFMPEG

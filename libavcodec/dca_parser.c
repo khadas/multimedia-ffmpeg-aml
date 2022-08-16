@@ -33,7 +33,7 @@
 
 typedef struct DCAParseContext {
     ParseContext pc;
-    uint32_t lastmarker;
+    uint32_t last_marker;
     int size;
     int framesize;
     unsigned int startpos;
@@ -84,16 +84,16 @@ static int dca_find_frame_end(DCAParseContext *pc1, const uint8_t *buf,
             state = (state << 8) | buf[i];
 
             if (IS_MARKER(state) &&
-                (!pc1->lastmarker ||
-                  pc1->lastmarker == CORE_MARKER(state) ||
-                  pc1->lastmarker == DCA_SYNCWORD_SUBSTREAM)) {
-                if (!pc1->lastmarker)
+                (!pc1->last_marker ||
+                  pc1->last_marker == CORE_MARKER(state) ||
+                  pc1->last_marker == DCA_SYNCWORD_SUBSTREAM)) {
+                if (!pc1->last_marker)
                     pc1->startpos = IS_EXSS_MARKER(state) ? size - 4 : size - 6;
 
                 if (IS_EXSS_MARKER(state))
-                    pc1->lastmarker = EXSS_MARKER(state);
+                    pc1->last_marker = EXSS_MARKER(state);
                 else
-                    pc1->lastmarker = CORE_MARKER(state);
+                    pc1->last_marker = CORE_MARKER(state);
 
                 start_found = 1;
                 size        = 0;
@@ -110,7 +110,7 @@ static int dca_find_frame_end(DCAParseContext *pc1, const uint8_t *buf,
             state = (state << 8) | buf[i];
 
             if (start_found == 1) {
-                switch (pc1->lastmarker) {
+                switch (pc1->last_marker) {
                 case DCA_SYNCWORD_CORE_BE:
                     if (size == 2) {
                         pc1->framesize = CORE_FRAMESIZE(state);
@@ -166,8 +166,8 @@ static int dca_find_frame_end(DCAParseContext *pc1, const uint8_t *buf,
                 continue;
 
             if (IS_MARKER(state) &&
-                (pc1->lastmarker == CORE_MARKER(state) ||
-                 pc1->lastmarker == DCA_SYNCWORD_SUBSTREAM)) {
+                (pc1->last_marker == CORE_MARKER(state) ||
+                 pc1->last_marker == DCA_SYNCWORD_SUBSTREAM)) {
                 pc->frame_start_found = 0;
                 pc->state64           = -1;
                 pc1->size             = 0;
@@ -186,7 +186,7 @@ static av_cold int dca_parse_init(AVCodecParserContext *s)
 {
     DCAParseContext *pc1 = s->priv_data;
 
-    pc1->lastmarker = 0;
+    pc1->last_marker = 0;
     pc1->sr_code = -1;
     return 0;
 }
@@ -327,7 +327,7 @@ static int dca_parse_params(DCAParseContext *pc1, const uint8_t *buf,
 }
 
 static int dca_parse(AVCodecParserContext *s, AVCodecContext *avctx,
-                     const uint8_t **poutbuf, int *poutbuf_size,
+                     const uint8_t **p_out_buffer, int *poutbuf_size,
                      const uint8_t *buf, int buf_size)
 {
     DCAParseContext *pc1 = s->priv_data;
@@ -342,7 +342,7 @@ static int dca_parse(AVCodecParserContext *s, AVCodecContext *avctx,
         next = dca_find_frame_end(pc1, buf, buf_size);
 
         if (ff_combine_frame(pc, next, &buf, &buf_size) < 0) {
-            *poutbuf      = NULL;
+            *p_out_buffer      = NULL;
             *poutbuf_size = 0;
             return buf_size;
         }
@@ -373,7 +373,7 @@ static int dca_parse(AVCodecParserContext *s, AVCodecContext *avctx,
         s->duration = 0;
     }
 
-    *poutbuf      = buf;
+    *p_out_buffer      = buf;
     *poutbuf_size = buf_size;
     return next;
 }

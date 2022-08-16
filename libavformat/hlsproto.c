@@ -219,7 +219,7 @@ static void sortByBandwidth(HLSContext *s)
     }
 }
 
-static int parse_playlist(URLContext *h, const char *url,uint64_t *estbw)
+static int parse_playlist(URLContext *h, const char *url,uint64_t *best_bandwidth)
 #else
 static int parse_playlist(URLContext *h, const char *url)
 #endif
@@ -330,8 +330,8 @@ static int parse_playlist(URLContext *h, const char *url)
     end_time = av_gettime_relative();
     if (end_time != start_time)
     {
-        *estbw = ((uint64_t)(8 * playlist_size * 1000) /((end_time - start_time)/1000));
-        av_log(NULL, AV_LOG_WARNING, "start_time %lld end %lld playlist_size %d *estbw %lld\n",start_time,end_time,playlist_size,*estbw);
+        *best_bandwidth = ((uint64_t)(8 * playlist_size * 1000) /((end_time - start_time)/1000));
+        av_log(NULL, AV_LOG_WARNING, "start_time %lld end %lld playlist_size %d *best_bandwidth %lld\n",start_time,end_time,playlist_size,*best_bandwidth);
     }
 #endif
 fail:
@@ -389,7 +389,7 @@ static int hls_open(URLContext *h, const char *uri, int flags)
         goto fail;
 
     if (s->n_segments == 0 && s->n_variants > 0) {
-        int max_bandwidth = 0, maxvar = -1;
+        int max_bandwidth = 0;
         s->index_variants = 0;
         char value[92] = {0};
 
@@ -417,14 +417,14 @@ static int hls_open(URLContext *h, const char *uri, int flags)
         goto fail;
 
     if (s->n_segments == 0 && s->n_variants > 0) {
-        int max_bandwidth = 0, maxvar = -1;
+        int max_bandwidth = 0, max_bandwidth_index = -1;
         for (i = 0; i < s->n_variants; i++) {
             if (s->variants[i]->bandwidth > max_bandwidth || i == 0) {
                 max_bandwidth = s->variants[i]->bandwidth;
-                maxvar = i;
+                max_bandwidth_index = i;
             }
         }
-        av_strlcpy(s->playlisturl, s->variants[maxvar]->url,
+        av_strlcpy(s->playlisturl, s->variants[max_bandwidth_index]->url,
                    sizeof(s->playlisturl));
         if ((ret = parse_playlist(h, s->playlisturl)) < 0)
             goto fail;
@@ -527,7 +527,7 @@ start:
 #ifdef AMFFMPEG
         if (s->n_variants > 0) {
             bandwidth = (int64_t)s->mReadByte * 8E6 / s->mReadTime;
-            av_log(s, AV_LOG_ERROR, "[%s %d] %d bandwidth=%lld curbw=%d size=%d delay=%lld ret=%d\n",
+            av_log(s, AV_LOG_ERROR, "[%s %d] %d bandwidth=%lld current_bw=%d size=%d delay=%lld ret=%d\n",
                     __FUNCTION__, __LINE__, s->cur_seq_size, bandwidth, s->variants[s->index_variants]->bandwidth, s->mReadByte, s->mReadTime, ret);
             s->mReadByte = 0;
             s->mReadTime = 0;
@@ -636,12 +636,12 @@ retry:
     }
     url = s->segments[s->cur_seq_no - s->start_seq_no]->url;
 #ifdef AMFFMPEG
-    av_log(h, AV_LOG_DEBUG, "opening %s \ncur_no=%lld cur_seq_no=%d\n", url, cur_no, s->cur_seq_no);
+    av_log(h, AV_LOG_DEBUG, "opening %s \n cur_no=%lld cur_seq_no=%d\n", url, cur_no, s->cur_seq_no);
     AVDictionary *opts = NULL;
-    char tmpchar[2] = {0};
-    memset(tmpchar, 0, sizeof(tmpchar));
-    sprintf(tmpchar, "%d", s->reconnect);
-    av_dict_set(&opts, "reconnect", tmpchar, 0);
+    char temp_char[2] = {0};
+    memset(temp_char, 0, sizeof(temp_char));
+    sprintf(temp_char, "%d", s->reconnect);
+    av_dict_set(&opts, "reconnect", temp_char, 0);
     ret = ffurl_open_whitelist(&s->seg_hd, url, AVIO_FLAG_READ,
                             &h->interrupt_callback, &opts,
                             h->protocol_whitelist, h->protocol_blacklist, h);
@@ -686,14 +686,14 @@ static int64_t hls_seek_ext(URLContext *h, int64_t off, int whence)
     else if ((off > s->start_seq_no) && (off < s->durations))
     {
 #ifdef AMFFMPEG
-       int64_t tmpdurations = s->durations;
+       int64_t temp_duration = s->durations;
 #else
-       int tmpdurations = s->durations;
+       int temp_duration = s->durations;
 #endif
        for (i = s->n_segments -1; i >= 0; i--)
        {
-          tmpdurations -= s->segments[i]->duration;
-          if (tmpdurations < off)
+          temp_duration -= s->segments[i]->duration;
+          if (temp_duration < off)
           {
 #ifdef AMFFMPEG
              s->cur_seq_no = i + s->start_seq_no;

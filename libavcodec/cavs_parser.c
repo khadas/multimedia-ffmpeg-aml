@@ -201,7 +201,7 @@ static void cavs2video_extract_headers(AVCodecParserContext *s,
 
 static int cavsvideo_parse(AVCodecParserContext *s,
                            AVCodecContext *avctx,
-                           const uint8_t **poutbuf, int *poutbuf_size,
+                           const uint8_t **p_out_buf, int *poutbuf_size,
                            const uint8_t *buf, int buf_size)
 {
     ParseContext *pc = s->priv_data;
@@ -213,7 +213,7 @@ static int cavsvideo_parse(AVCodecParserContext *s,
         next= cavs_find_frame_end(pc, buf, buf_size);
 
         if (ff_combine_frame(pc, next, &buf, &buf_size) < 0) {
-            *poutbuf = NULL;
+            *p_out_buf = NULL;
             *poutbuf_size = 0;
             return buf_size;
         }
@@ -221,7 +221,7 @@ static int cavsvideo_parse(AVCodecParserContext *s,
 #ifdef AMFFMPEG
     parse_avs_nal_units(s, buf, buf_size, avctx);
 #endif
-    *poutbuf = buf;
+    *p_out_buf = buf;
     *poutbuf_size = buf_size;
     return next;
 }
@@ -229,7 +229,7 @@ static int cavsvideo_parse(AVCodecParserContext *s,
 #ifdef AMFFMPEG
 static int cavs2video_parse(AVCodecParserContext *s,
                         AVCodecContext *avctx,
-                        const uint8_t **poutbuf, int *poutbuf_size,
+                        const uint8_t **p_out_buf, int *poutbuf_size,
                         const uint8_t *buf, int buf_size)
 {
     ParseContext *pc = s->priv_data;
@@ -241,7 +241,7 @@ static int cavs2video_parse(AVCodecParserContext *s,
         next= cavs_find_frame_end(pc, buf, buf_size);
 
        if (ff_combine_frame(pc, next, &buf, &buf_size) < 0) {
-            *poutbuf = NULL;
+            *p_out_buf = NULL;
             *poutbuf_size = 0;
             return buf_size;
         }
@@ -251,7 +251,7 @@ static int cavs2video_parse(AVCodecParserContext *s,
     //avctx->time_base.den = 30000;
     //avctx->time_base.num = 1000;
 
-    *poutbuf = buf;
+    *p_out_buf = buf;
     *poutbuf_size = buf_size;
     return next;
 }

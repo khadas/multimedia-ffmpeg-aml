@@ -2898,6 +2898,15 @@ int ff_mov_read_stsd_entries(MOVContext *c, AVIOContext *pb, int entries)
         sc->stsd_count++;
     }
 
+    /* special codec parameters handling */
+    switch (st->codecpar->codec_id) {
+    case AV_CODEC_ID_HEVC:
+        st->need_parsing = AVSTREAM_PARSE_HEADERS;
+        break;
+    default:
+        break;
+    }
+
     if (pb->eof_reached) {
         av_log(c->fc, AV_LOG_WARNING, "reached eof, corrupted STSD atom\n");
         return AVERROR_EOF;
@@ -3142,6 +3151,9 @@ static int mov_read_stss(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     }
 
     sc->keyframe_count = i;
+    // add for mp4/mov file seek
+    if (st->index == AVMEDIA_TYPE_VIDEO)
+        c->keyframe_count = i;
 
     if (pb->eof_reached) {
         av_log(c->fc, AV_LOG_WARNING, "reached eof, corrupted STSS atom\n");
@@ -8792,7 +8804,7 @@ static const AVOption mov_options[] = {
     { "decryption_key", "The media decryption key (hex)", OFFSET(decryption_key), AV_OPT_TYPE_BINARY, .flags = AV_OPT_FLAG_DECODING_PARAM },
     { "enable_drefs", "Enable external track support.", OFFSET(enable_drefs), AV_OPT_TYPE_BOOL,
         {.i64 = 0}, 0, 1, FLAGS },
-
+    { "keyframe_count", "keyframe_count.", OFFSET(keyframe_count), AV_OPT_TYPE_INT, {.i64 = 0}, 0, 1, AV_OPT_FLAG_DECODING_PARAM },
     { NULL },
 };
 

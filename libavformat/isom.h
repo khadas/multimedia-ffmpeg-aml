@@ -307,6 +307,7 @@ typedef struct MOVContext {
     MOVPsshInfo *pssh_info;
     unsigned pssh_count;
 #endif
+    int keyframe_count;
 } MOVContext;
 
 int ff_mp4_read_descr_len(AVIOContext *pb);

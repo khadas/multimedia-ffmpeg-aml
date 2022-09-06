@@ -1415,6 +1415,19 @@ static void compute_pkt_fields(AVFormatContext *s, AVStream *st,
     /* update flags */
     if (st->codecpar->codec_type == AVMEDIA_TYPE_DATA || ff_is_intra_only(st->codecpar->codec_id))
         pkt->flags |= AV_PKT_FLAG_KEY;
+    else if (pc) {
+        if (!(pkt->flags & AV_PKT_FLAG_KEY)) {
+            pkt->flags = 0;
+            /* keyframe computation */
+            if (pc->key_frame == 1) {
+                pkt->flags |= AV_PKT_FLAG_KEY;
+            }
+            else if (pc->key_frame == -1 && pc->pict_type == AV_PICTURE_TYPE_I) {
+                pkt->flags |= AV_PKT_FLAG_KEY;
+            }
+        }
+    }
+
 #if FF_API_CONVERGENCE_DURATION
 FF_DISABLE_DEPRECATION_WARNINGS
     if (pc)

@@ -2110,7 +2110,7 @@ typedef struct AVCodecContext {
 #ifdef AMFFMPEG
     /* to record mpeg4 vol_sprite_usage */
     int mpeg4_vol_sprite;
-    int mpeg4_quater_sample;
+    int mpeg4_quarter_sample;
 #endif
     /**
      * Character encoding of the input subtitles file.

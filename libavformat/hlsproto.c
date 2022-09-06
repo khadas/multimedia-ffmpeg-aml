@@ -76,7 +76,7 @@ struct variant {
 
 typedef struct HLSContext {
     const AVClass *class;
-    char playlisturl[MAX_URL_SIZE];
+    char playlist_url[MAX_URL_SIZE];
     int64_t target_duration;
     int start_seq_no;
     int finished;
@@ -365,7 +365,7 @@ static int hls_open(URLContext *h, const char *uri, int flags)
     h->is_streamed = 1;
 
     if (av_strstart(uri, "hls+", &nested_url)) {
-        av_strlcpy(s->playlisturl, nested_url, sizeof(s->playlisturl));
+        av_strlcpy(s->playlist_url, nested_url, sizeof(s->playlist_url));
     } else if (av_strstart(uri, "hls://", &nested_url)) {
         av_log(h, AV_LOG_ERROR,
                "No nested protocol specified. Specify e.g. hls+http://%s\n",
@@ -382,10 +382,10 @@ static int hls_open(URLContext *h, const char *uri, int flags)
            "hls demuxer instead. The hls demuxer should be more complete "
            "and work as well as the protocol implementation. (If not, "
            "please report it.) To use the demuxer, simply use %s as url.\n",
-           s->playlisturl);
+           s->playlist_url);
 #ifdef AMFFMPEG
     uint64_t bw = 0;
-    if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+    if ((ret = parse_playlist(h, s->playlist_url, &bw)) < 0)
         goto fail;
 
     if (s->n_segments == 0 && s->n_variants > 0) {
@@ -407,13 +407,13 @@ static int hls_open(URLContext *h, const char *uri, int flags)
             }
         }
 
-        av_strlcpy(s->playlisturl, s->variants[s->index_variants]->url,
-                   sizeof(s->playlisturl));
-        if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+        av_strlcpy(s->playlist_url, s->variants[s->index_variants]->url,
+                   sizeof(s->playlist_url));
+        if ((ret = parse_playlist(h, s->playlist_url, &bw)) < 0)
             goto fail;
     }
 #else
-    if ((ret = parse_playlist(h, s->playlisturl)) < 0)
+    if ((ret = parse_playlist(h, s->playlist_url)) < 0)
         goto fail;
 
     if (s->n_segments == 0 && s->n_variants > 0) {
@@ -424,9 +424,9 @@ static int hls_open(URLContext *h, const char *uri, int flags)
                 max_bandwidth_index = i;
             }
         }
-        av_strlcpy(s->playlisturl, s->variants[max_bandwidth_index]->url,
-                   sizeof(s->playlisturl));
-        if ((ret = parse_playlist(h, s->playlisturl)) < 0)
+        av_strlcpy(s->playlist_url, s->variants[max_bandwidth_index]->url,
+                   sizeof(s->playlist_url));
+        if ((ret = parse_playlist(h, s->playlist_url)) < 0)
             goto fail;
     }
 #endif
@@ -575,8 +575,8 @@ start:
                 s->index_variants = temp;
                 av_log(s, AV_LOG_ERROR, "switch down index=%d\n",s->index_variants);
                 needSwitch = 1;
-                av_strlcpy(s->playlisturl, s->variants[s->index_variants]->url,
-                        sizeof(s->playlisturl));
+                av_strlcpy(s->playlist_url, s->variants[s->index_variants]->url,
+                        sizeof(s->playlist_url));
             }
         } else if (bandwidth > 13*s->variants[s->index_variants]->bandwidth/10) {
             for (i = 0; i < s->n_variants; i++) {
@@ -590,8 +590,8 @@ start:
                 s->index_variants = temp;
                 av_log(s, AV_LOG_ERROR, "switch up index=%d\n", s->index_variants);
                 needSwitch = 1;
-                av_strlcpy(s->playlisturl, s->variants[s->index_variants]->url,
-                        sizeof(s->playlisturl));
+                av_strlcpy(s->playlist_url, s->variants[s->index_variants]->url,
+                        sizeof(s->playlist_url));
             }
         }
     }
@@ -599,17 +599,17 @@ start:
 retry:
 #ifdef AMFFMPEG
     if (s->finished && needSwitch)
-        if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+        if ((ret = parse_playlist(h, s->playlist_url, &bw)) < 0)
             return ret;
 #endif
     if (!s->finished) {
         int64_t now = av_gettime_relative();
 #ifdef AMFFMPEG
         if (now - s->last_load_time >= reload_interval || needSwitch) {
-            if ((ret = parse_playlist(h, s->playlisturl, &bw)) < 0)
+            if ((ret = parse_playlist(h, s->playlist_url, &bw)) < 0)
 #else
         if (now - s->last_load_time >= reload_interval) {
-            if ((ret = parse_playlist(h, s->playlisturl)) < 0)
+            if ((ret = parse_playlist(h, s->playlist_url)) < 0)
 #endif
                 return ret;
             /* If we need to reload the playlist again below (if

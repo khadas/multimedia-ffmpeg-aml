@@ -2547,7 +2547,7 @@ static int decode_vol_header(Mpeg4DecContext *ctx, GetBitContext *gb)
         else
             s->quarter_sample = 0;
 #ifdef AMFFMPEG
-        s->avctx->mpeg4_quater_sample = s->quarter_sample;
+        s->avctx->mpeg4_quarter_sample = s->quarter_sample;
 #endif
 
         if (get_bits_left(gb) < 4) {

@@ -2082,7 +2082,7 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
 #ifdef AMFFMPEG
                 av_dict_set(&st->metadata, "teletext-info", teletext_info, 0);
                 sprintf(pages_number_info, "%d", language_count);
-                av_dict_set_int(&st->metadata, "langcount", language_count, 0);
+                av_dict_set_int(&st->metadata, "language_count", language_count, 0);
                 av_log(fc, AV_LOG_ERROR, "language:%s  teletext-info:%s language_count:%d\n", language, teletext_info, language_count);
 #endif
                 st->internal->need_context_update = 1;
@@ -3510,7 +3510,7 @@ static void check_aac_adts(AVFormatContext * s)
                 if (es_header_pos + 4 > ts->raw_packet_size) {
                     continue;
                 }
-                //adts 12bit header oxfff
+                //adts 12bit header 0xfff
                 if (((data[es_header_pos] << 8) | (data[es_header_pos + 1] & 0xf0)) != 0xfff0) {
                     continue;
                 }

@@ -3465,6 +3465,11 @@ static void check_ac3_dts(AVFormatContext * s)
     }
 }
 
+static const int aac_sample_freq_table[] = {
+    96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050,
+    16000, 12000, 11025, 8000
+};
+
 #define MAX_PACKET_READ_NUM 72000
 static void check_aac_adts(AVFormatContext * s)
 {
@@ -3531,6 +3536,12 @@ static void check_aac_adts(AVFormatContext * s)
                 if (channel_configuration == 0) {
                     av_log(NULL, AV_LOG_WARNING, "channel_config should not be 0\n");
                     continue;
+                }
+                if (s->streams[s_index]->codecpar->sample_rate <= 0) {
+                    s->streams[s_index]->codecpar->sample_rate = aac_sample_freq_table[sampling_freq_index];
+                }
+                if (s->streams[s_index]->codecpar->channels <= 0) {
+                    s->streams[s_index]->codecpar->channels = channel_configuration;
                 }
 
                 csd[0] = ((profile + 1) << 3) | (sampling_freq_index >> 1);

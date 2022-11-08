@@ -286,6 +286,9 @@ static int remap##ws##_##bits##bit_slice(AVFilterContext *ctx, void *arg, int jo
                                                                                                            \
     for (int stereo = 0; stereo < 1 + s->out_stereo > STEREO_2D; stereo++) {                               \
         for (int plane = 0; plane < s->nb_planes; plane++) {                                               \
+            /*s->map[4]、s->uv_linesize[4]、s->pr_width[4]、s->pr_height[4]*/                                 \
+            if (plane >= 4)                                                                                \
+                break;                                                                                     \
             const unsigned map = s->map[plane];                                                            \
             const int in_linesize  = in->linesize[plane];                                                  \
             const int out_linesize = out->linesize[plane];                                                 \
@@ -3575,7 +3578,7 @@ static int barrelsplit_to_xyz(const V360Context *s,
 {
     const float x = (i + 0.5f) / width;
     const float y = (j + 0.5f) / height;
-    float l_x, l_y, l_z;
+    float l_x = 0, l_y = 0, l_z = 0;
 
     if (x < 2.f / 3.f) {
         const float scalew = s->fout_pad > 0 ? 1.f - s->fout_pad / (width * 2.f / 3.f) : 1.f - s->out_pad;

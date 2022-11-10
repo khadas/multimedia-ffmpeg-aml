@@ -14,7 +14,7 @@ FFMPEG_CFLAGS := \
     -Wno-implicit-function-declaration \
     -fPIC \
 
-FFMPEG_LDFLAGS := -Wl,--as-needed -Wl,-Bsymbolic -lm 
+FFMPEG_LDFLAGS := -Wl,--as-needed -Wl,-Bsymbolic -lm
 
 $(warning "Define TARGET_ARCH: " $(TARGET_ARCH))
 
@@ -53,7 +53,8 @@ $(warning "Define VERSION_STRING: " $(VERSION_STRING))
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libamffmpeg
-
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-1.0+ SPDX-license-identifier-GPL-2.0+ SPDX-license-identifier-LGPL-2.0+ SPDX-license-identifier-MIT SPDX-license-identifier-ISC SPDX-license-identifier-BSD SPDX-license-identifier-LGPL-2.1+ legacy_proprietary
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_MODULE_TAGS := optional
@@ -93,6 +94,8 @@ ifneq (0, $(shell expr $(PLATFORM_VERSION) \>= 9))
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libamffmpeg.vendor
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-1.0+ SPDX-license-identifier-GPL-2.0+ SPDX-license-identifier-LGPL-2.0+ SPDX-license-identifier-MIT SPDX-license-identifier-ISC SPDX-license-identifier-BSD SPDX-license-identifier-LGPL-2.1+ legacy_proprietary
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_VENDOR_MODULE := true
 
@@ -114,7 +117,7 @@ LOCAL_LDFLAGS += $(FFMPEG_LDFLAGS)
 LOCAL_LDFLAGS_arm := -Wl
 LOCAL_LDFLAGS_arm64 := -Wl
 
-#LOCAL_SRC_FILES := 
+#LOCAL_SRC_FILES :=
 
 LOCAL_SRC_FILES_arm := $(FFMPEG_SOURCE_ARM)
 

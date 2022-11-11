@@ -3735,18 +3735,8 @@ static int matroska_parse_block(MatroskaDemuxContext *matroska, AVBufferRef *buf
         if (track->type == MATROSKA_TRACK_TYPE_SUBTITLE &&
             timecode < track->end_timecode)
             is_keyframe = 0;  /* overlapping subtitles are not key frame */
-#ifdef AMFFMPEG
-        if (is_keyframe ||
-            // for some HEVC MKV files have no keyframe index available
-            ((track->type == MATROSKA_TRACK_TYPE_VIDEO) &&
-            (st->codec->codec_id == AV_CODEC_ID_HEVC))) {
-#else
         if (is_keyframe) {
-#endif
             ff_reduce_index(matroska->ctx, st->index);
-#ifdef AMFFMPEG
-            is_keyframe = 1;
-#endif
             av_add_index_entry(st, cluster_pos, timecode, 0, 0,
                                AVINDEX_KEYFRAME);
         }

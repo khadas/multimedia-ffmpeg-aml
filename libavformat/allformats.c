@@ -411,7 +411,6 @@ extern AVInputFormat  ff_sln_demuxer;
 extern AVInputFormat  ff_smacker_demuxer;
 extern AVInputFormat  ff_smjpeg_demuxer;
 extern AVOutputFormat ff_smjpeg_muxer;
-extern AVOutputFormat ff_smoothstreaming_muxer;
 extern AVInputFormat  ff_smush_demuxer;
 extern AVInputFormat  ff_sol_demuxer;
 extern AVInputFormat  ff_sox_demuxer;

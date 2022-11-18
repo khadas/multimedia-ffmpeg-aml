@@ -135,7 +135,6 @@ static const AVOutputFormat * const muxer_list[] = {
     &ff_stream_segment_muxer,
     &ff_singlejpeg_muxer,
     &ff_smjpeg_muxer,
-    &ff_smoothstreaming_muxer,
     &ff_sox_muxer,
     &ff_spx_muxer,
     &ff_srt_muxer,

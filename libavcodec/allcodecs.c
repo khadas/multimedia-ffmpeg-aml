@@ -502,16 +502,7 @@ extern AVCodec ff_vorbis_encoder;
 extern AVCodec ff_vorbis_decoder;
 extern AVCodec ff_wavpack_encoder;
 extern AVCodec ff_wavpack_decoder;
-extern AVCodec ff_wmalossless_decoder;
-extern AVCodec ff_wmapro_decoder;
-extern AVCodec ff_wmav1_encoder;
-extern AVCodec ff_wmav1_decoder;
-extern AVCodec ff_wmav2_encoder;
-extern AVCodec ff_wmav2_decoder;
-extern AVCodec ff_wmavoice_decoder;
 extern AVCodec ff_ws_snd1_decoder;
-extern AVCodec ff_xma1_decoder;
-extern AVCodec ff_xma2_decoder;
 
 /* PCM codecs */
 extern AVCodec ff_pcm_alaw_encoder;

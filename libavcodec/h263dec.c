@@ -492,9 +492,7 @@ retry:
         ff_mpv_idct_init(s);
 
     /* let's go :-) */
-    if (CONFIG_WMV2_DECODER && s->msmpeg4_version == 5) {
-        ret = ff_wmv2_decode_picture_header(s);
-    } else if (CONFIG_MSMPEG4_DECODER && s->msmpeg4_version) {
+    if (CONFIG_MSMPEG4_DECODER && s->msmpeg4_version) {
         ret = ff_msmpeg4_decode_picture_header(s);
     } else if (CONFIG_MPEG4_DECODER && avctx->codec_id == AV_CODEC_ID_MPEG4) {
         if (s->avctx->extradata_size && s->picture_number == 0) {
@@ -637,13 +635,6 @@ retry:
     /* the second part of the wmv2 header contains the MB skip bits which
      * are stored in current_picture->mb_type which is not available before
      * ff_mpv_frame_start() */
-    if (CONFIG_WMV2_DECODER && s->msmpeg4_version == 5) {
-        ret = ff_wmv2_decode_secondary_picture_header(s);
-        if (ret < 0)
-            return ret;
-        if (ret == 1)
-            goto frame_end;
-    }
 
     /* decode each macroblock */
     s->mb_x = 0;

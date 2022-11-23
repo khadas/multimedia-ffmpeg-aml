@@ -2126,9 +2126,6 @@ void mpv_reconstruct_mb_internal(MpegEncContext *s, int16_t block[12][64],
                     }
                 }//fi gray
             }
-            else if (CONFIG_WMV2_DECODER || CONFIG_WMV2_ENCODER) {
-                ff_wmv2_add_mb(s, block, dest_y, dest_cb, dest_cr);
-            }
         } else {
             /* Only MPEG-4 Simple Studio Profile is supported in > 8-bit mode.
                TODO: Integrate 10-bit properly into mpegvideo.c so that ER works properly */

@@ -69,12 +69,8 @@ int ff_msmpeg4_pred_dc(MpegEncContext *s, int n,
 #define CONFIG_MSMPEG4_DECODER (CONFIG_MSMPEG4V1_DECODER || \
                                 CONFIG_MSMPEG4V2_DECODER || \
                                 CONFIG_MSMPEG4V3_DECODER || \
-                                CONFIG_WMV1_DECODER      || \
-                                CONFIG_WMV2_DECODER      || \
                                 CONFIG_VC1_DECODER)
 #define CONFIG_MSMPEG4_ENCODER (CONFIG_MSMPEG4V2_ENCODER || \
-                                CONFIG_MSMPEG4V3_ENCODER || \
-                                CONFIG_WMV1_ENCODER      || \
-                                CONFIG_WMV2_ENCODER)
+                                CONFIG_MSMPEG4V3_ENCODER)
 
 #endif /* AVCODEC_MSMPEG4_H */

@@ -2582,10 +2582,6 @@ static av_always_inline void encode_mb_internal(MpegEncContext *s,
         if (CONFIG_MSMPEG4_ENCODER)
             ff_msmpeg4_encode_mb(s, s->block, motion_x, motion_y);
         break;
-    case AV_CODEC_ID_WMV2:
-        if (CONFIG_WMV2_ENCODER)
-            ff_wmv2_encode_mb(s, s->block, motion_x, motion_y);
-        break;
     case AV_CODEC_ID_H261:
         if (CONFIG_H261_ENCODER)
             ff_h261_encode_mb(s, s->block, motion_x, motion_y);
@@ -3936,9 +3932,7 @@ static int encode_picture(MpegEncContext *s, int picture_number)
             ff_h261_encode_picture_header(s, picture_number);
         break;
     case FMT_H263:
-        if (CONFIG_WMV2_ENCODER && s->codec_id == AV_CODEC_ID_WMV2)
-            ff_wmv2_encode_picture_header(s, picture_number);
-        else if (CONFIG_MSMPEG4_ENCODER && s->msmpeg4_version)
+        if (CONFIG_MSMPEG4_ENCODER && s->msmpeg4_version)
             ff_msmpeg4_encode_picture_header(s, picture_number);
         else if (CONFIG_MPEG4_ENCODER && s->h263_pred) {
             ret = ff_mpeg4_encode_picture_header(s, picture_number);

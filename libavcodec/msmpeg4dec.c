@@ -389,8 +389,7 @@ av_cold int ff_msmpeg4_decode_init(AVCodecContext *avctx)
         s->decode_mb= msmpeg4v34_decode_mb;
         break;
     case 5:
-        if (CONFIG_WMV2_DECODER)
-            s->decode_mb= ff_wmv2_decode_mb;
+        break;
     case 6:
         //FIXME + TODO VC1 decode mb
         break;

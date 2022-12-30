@@ -1,0 +1,401 @@
+bootstrap_go_package {
+    name: "ffmpeg",
+    pkgPath: "android/soong/ffmpeg",
+    deps: [
+        "blueprint",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+        "blueprint-bootstrap",
+        "soong-cc-config"
+    ],
+    srcs: [
+        "ffmpeg.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+ffmpeg_defaults {
+    name: "ffmpeg_defaults",
+}
+
+package {
+    default_applicable_licenses: ["amffmpeg_license"],
+}
+
+license {
+    name: "amffmpeg_license",
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-GPL-1.0+",
+        "SPDX-license-identifier-GPL-2.0+",
+        "SPDX-license-identifier-LGPL-2.0+",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-ISC",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-LGPL-2.1+",
+        "legacy_proprietary",
+    ],
+    //license_conditions: ["notice"],
+}
+
+filegroup {
+    name: "arm-srcs",
+    srcs: [
+        "libavfilter/*.c",
+        "libavfilter/dnn/*.c",
+        "libswscale/*.c",
+        "libswscale/arm/*.c",
+        "libswscale/arm/*.S",
+        "compat/strtod.c",
+        "libavutil/*.c",
+        "libavutil/arm/*.c",
+        "libavutil/arm/*.S",
+        "libavformat/*.c",
+        "libavcodec/*.c",
+        "libavcodec/arm/*.c",
+        "libavcodec/arm/*.S",
+        "libswresample/*.c",
+        "libswresample/arm/*.c",
+        "libswresample/arm/*.S",
+        "libavcodec/neon/mpegvideo.c",
+    ],
+}
+
+filegroup {
+    name: "arm64-srcs",
+    srcs: [
+        "libavfilter/aarch64/*.S",
+        "libavfilter/aarch64/*.c",
+        "libavfilter/*.c",
+        "libavfilter/dnn/*.c",
+        "libswscale/aarch64/*.S",
+        "libswscale/aarch64/*.c",
+        "libswscale/*.c",
+        "compat/strtod.c",
+        "libavutil/*.c",
+        "libavutil/aarch64/*.c",
+        "libavutil/aarch64/*.S",
+        "libavformat/*.c",
+        "libavcodec/*.c",
+        "libavcodec/aarch64/*.c",
+        "libavcodec/aarch64/*.S",
+        "libswresample/*.c",
+        "libswresample/aarch64/*.c",
+        "libswresample/aarch64/*.S",
+        "libavcodec/neon/mpegvideo.c",
+    ],
+}
+
+filegroup {
+    name: "exclude-srcs",
+    srcs: [
+        "libavfilter/median_template.c",
+        "libavfilter/vaapi_vpp.c",
+        "libavfilter/af_asr.c",
+        "libavfilter/vf_avgblur_vulkan.c",
+        "libavfilter/vf_avgblur_opencl.c",
+        "libavfilter/colorspacedsp_yuv2yuv_template.c",
+        "libavfilter/qsvvpp.c",
+        "libavfilter/opencl.c",
+        "libavfilter/filter_list.c",
+        "libavfilter/f_zmq.c",
+        "libavfilter/colorspacedsp_template.c",
+        "libavfilter/asrc_flite.c",
+        "libavfilter/af_sofalizer.c",
+        "libavfilter/af_rubberband.c",
+        "libavfilter/af_lv2.c",
+        "libavfilter/af_ladspa.c",
+        "libavfilter/af_bs2b.c",
+        "libavfilter/vf_pad_opencl.c",
+        "libavfilter/vf_overlay_vulkan.c",
+        "libavfilter/vf_overlay_qsv.c",
+        "libavfilter/vf_overlay_opencl.c",
+        "libavfilter/vf_overlay_cuda.c",
+        "libavfilter/vf_ocr.c",
+        "libavfilter/vf_nlmeans_opencl.c",
+        "libavfilter/vf_neighbor_opencl.c",
+        "libavfilter/vf_misc_vaapi.c",
+        "libavfilter/vf_libvmaf.c",
+        "libavfilter/vf_libopencv.c",
+        "libavfilter/vf_frei0r.c",
+        "libavfilter/vf_drawtext.c",
+        "libavfilter/vf_deshake_opencl.c",
+        "libavfilter/vf_deinterlace_vaapi.c",
+        "libavfilter/vf_deinterlace_qsv.c",
+        "libavfilter/vf_convolution_opencl.c",
+        "libavfilter/vf_colorkey_opencl.c",
+        "libavfilter/vf_codecview.c",
+        "libavfilter/vf_chromaber_vulkan.c",
+        "libswscale/bayer_template.c",
+        "libswscale/rgb2rgb_template.c",
+        "libavfilter/dnn/dnn_backend_tf.c",
+        "libavfilter/dnn/dnn_backend_openvino.c",
+        "libavfilter/vulkan.c",
+        "libavfilter/vidstabutils.c",
+        "libavfilter/vf_zscale.c",
+        "libavfilter/vf_yadif_cuda.c",
+        "libavfilter/vf_xfade_opencl.c",
+        "libavfilter/vf_vpp_qsv.c",
+        "libavfilter/vf_vidstabtransform.c",
+        "libavfilter/vf_vidstabdetect.c",
+        "libavfilter/vf_unsharp_opencl.c",
+        "libavfilter/vf_transpose_vaapi.c",
+        "libavfilter/vf_transpose_opencl.c",
+        "libavfilter/vf_transpose_npp.c",
+        "libavfilter/vf_tonemap_vaapi.c",
+        "libavfilter/vf_tonemap_opencl.c",
+        "libavfilter/vf_thumbnail_cuda.c",
+        "libavfilter/vf_subtitles.c",
+        "libavfilter/vf_scale_vulkan.c",
+        "libavfilter/vf_scale_vaapi.c",
+        "libavfilter/vf_scale_qsv.c",
+        "libavfilter/vf_scale_npp.c",
+        "libavfilter/vf_scale_cuda.c",
+        "libavfilter/vf_program_opencl.c",
+        "libavfilter/vf_procamp_vaapi.c",
+        "libavutil/tx_template.c",
+        "libavutil/hwcontext_vulkan.c",
+        "libavutil/hwcontext_videotoolbox.c",
+        "libavutil/hwcontext_vdpau.c",
+        "libavutil/hwcontext_vaapi.c",
+        "libavutil/hwcontext_qsv.c",
+        "libavutil/hwcontext_opencl.c",
+        "libavutil/hwcontext_dxva2.c",
+        "libavutil/hwcontext_drm.c",
+        "libavutil/hwcontext_d3d11va.c",
+        "libavutil/hwcontext_cuda.c",
+        "libavformat/chromaprint.c",
+        "libavformat/bluray.c",
+        "libavformat/avisynth.c",
+        "libavformat/libzmq.c",
+        "libavformat/libssh.c",
+        "libavformat/libsrt.c",
+        "libavformat/libsmbclient.c",
+        "libavformat/librtmp.c",
+        "libavformat/librist.c",
+        "libavformat/libopenmpt.c",
+        "libavformat/libmodplug.c",
+        "libavformat/libgme.c",
+        "libavformat/libamqp.c",
+        "libavformat/rtmpdh.c",
+        "libavformat/rtmpcrypt.c",
+        "libavformat/protocol_list.c",
+        "libavformat/muxer_list.c",
+        "libavformat/demuxer_list.c",
+        "libavcodec/aacdec_template.c",
+        "libavformat/tls_libtls.c",
+        "libavformat/vapoursynth.c",
+        "libavformat/tls_securetransport.c",
+        "libavformat/tls_schannel.c",
+        "libavformat/tls_openssl.c",
+        "libavformat/tls_mbedtls.c",
+        "libavformat/tls_gnutls.c",
+        "libavformat/sctp.c",
+        "libavcodec/cbs_h264_syntax_template.c",
+        "libavcodec/cbs_av1_syntax_template.c",
+        "libavcodec/bsf_list.c",
+        "libavcodec/aacsbr_template.c",
+        "libavcodec/aacpsdata.c",
+        "libavcodec/ffv1enc_template.c",
+        "libavcodec/dirac_dwt_template.c",
+        "libavcodec/codec_list.c",
+        "libavcodec/cbs_h265_syntax_template.c",
+        "libavcodec/cbs_mpeg2_syntax_template.c",
+        "libavcodec/cbs_sei_syntax_template.c",
+        "libavcodec/cbs_vp9_syntax_template.c",
+        "libavcodec/ffv1_template.c",
+        "libavcodec/ffv1dec_template.c",
+        "libavcodec/h264_mb_template.c",
+        "libavcodec/h264_mc_template.c",
+        "libavcodec/h264qpel_template.c",
+        "libavcodec/libwebpenc.c",
+        "libavcodec/hevcpred_template.c",
+        "libavcodec/hevcdsp_template.c",
+        "libavcodec/motion_est_template.c",
+        "libavcodec/mpegaudiodec_template.c",
+        "libavcodec/parser_list.c",
+        "libavcodec/qpel_template.c",
+        "libavcodec/sbrdsp_template.c",
+        "libavcodec/truemotion1.c",
+        "libavcodec/v210_template.c",
+        "libavcodec/vp9_mc_template.c",
+        "libavcodec/vp9dsp_template.c",
+        "libswresample/soxr_resample.c",
+        "libswresample/dither_template.c",
+        "libswresample/noise_shaping_data.c",
+        "libswresample/rematrix_template.c",
+        "libswresample/resample_template.c",
+        "libswscale/arm/rgb2yuv_neon_common.S",
+        "libavformat/file_open.c",
+        "libavcodec/aacps.c",
+        "libavcodec/aacpsdsp_template.c",
+        "libavcodec/dct32_template.c",
+        "libavcodec/fft_template.c",
+        "libavcodec/h264idct_template.c",
+        "libavcodec/file_open.c",
+        "libavcodec/jfdctint_template.c",
+        "libavcodec/mdct_template.c",
+        "libavcodec/mpegaudiodsp_template.c",
+        "libavcodec/videodsp_template.c",
+        "libavfilter/af_resample.c",
+        "libavcodec/aarch64/vp9dsp_init_16bpp_aarch64_template.c",
+        "libswresample/aarch64/neontest.c",
+        "libavcodec/arm/vp9dsp_init_16bpp_arm_template.c",
+        "libswresample/arm/neontest.c",
+    ],
+}
+
+
+cc_library_shared {
+    name: "libamffmpeg",
+    defaults: ["ffmpeg_defaults"],
+
+    system_ext_specific: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.amlogic.mediaextractor",
+    ],
+    //vendor: true,
+
+    arch: {
+        arm: {
+            srcs: [
+                ":arm-srcs",
+            ],
+            exclude_srcs: [
+                ":exclude-srcs",
+            ],
+        },
+        arm64: {
+            srcs: [
+                ":arm64-srcs",
+            ],
+            exclude_srcs: [
+                ":exclude-srcs",
+            ],
+        },
+    },
+
+    cflags: [
+        "-DAMFFMPEG",
+        "-DHAVE_AV_CONFIG_H",
+        "-Wno-error=return-type",
+        "-Wno-missing-field-initializers",
+        "-Wno-parentheses",
+        "-Wno-pointer-sign",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-string-plus-int",
+        "-Wno-implicit-function-declaration",
+        "-fPIC",
+        "-DFF_API_AV_GETTIME=0"
+    ],
+
+    ldflags: [
+        "-Wl",
+        "-Wl,--as-needed",
+        "-Wl,-Bsymbolic",
+    ],
+
+    multilib: {
+        lib32: {
+            cflags: ["-DARCH_ARM"],
+        },
+        lib64: {
+            cflags: ["-DARCH_AARCH64"],
+        },
+    },
+
+    include_dirs: [
+        "external/zlib",
+        "external/libxml2/include",
+        "vendor/amlogic/common/external/ffmpeg",
+    ],
+
+    shared_libs: [
+        "libutils",
+        "liblog",
+        "libdl",
+        "libz",
+        "libcutils",
+        //"libssl",
+        //"libcrypto",
+        "libxml2"
+    ],
+}
+
+cc_library_shared {
+
+    name: "libamffmpeg.vendor",
+    defaults: ["ffmpeg_defaults"],
+
+    vendor: true,
+
+    arch: {
+        arm: {
+            srcs: [
+                ":arm-srcs",
+            ],
+            exclude_srcs: [
+                ":exclude-srcs",
+            ],
+        },
+        arm64: {
+            srcs: [
+                ":arm64-srcs",
+            ],
+            exclude_srcs: [
+                ":exclude-srcs",
+            ],
+        },
+    },
+
+    cflags: [
+        "-DAMFFMPEG",
+        "-DHAVE_AV_CONFIG_H",
+        "-Wno-error=return-type",
+        "-Wno-missing-field-initializers",
+        "-Wno-parentheses",
+        "-Wno-pointer-sign",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-string-plus-int",
+        "-Wno-implicit-function-declaration",
+        "-fPIC",
+        "-DFF_API_AV_GETTIME=0"
+    ],
+
+    multilib: {
+        lib32: {
+            cflags: ["-DARCH_ARM"],
+        },
+        lib64: {
+            cflags: ["-DARCH_AARCH64"],
+        },
+    },
+
+    ldflags: [
+        "-Wl",
+        "-Wl,--as-needed",
+        "-Wl,-Bsymbolic",
+    ],
+
+    include_dirs: [
+        "external/zlib",
+        "external/libxml2/include",
+        "vendor/amlogic/common/external/ffmpeg",
+    ],
+
+    shared_libs: [
+        "libutils",
+        "liblog",
+        "libdl",
+        "libz",
+        "libcutils",
+        "libssl",
+        "libcrypto",
+        "libxml2"
+    ],
+}

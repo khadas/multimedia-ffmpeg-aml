@@ -54,7 +54,7 @@ $(warning "Define VERSION_STRING: " $(VERSION_STRING))
 include $(CLEAR_VARS)
 LOCAL_MODULE := libamffmpeg
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-1.0+ SPDX-license-identifier-GPL-2.0+ SPDX-license-identifier-LGPL-2.0+ SPDX-license-identifier-MIT SPDX-license-identifier-ISC SPDX-license-identifier-BSD SPDX-license-identifier-LGPL-2.1+ legacy_proprietary
-LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_LICENSE_CONDITIONS := notice proprietary by_exception_only
 
 LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_MODULE_TAGS := optional
@@ -95,7 +95,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libamffmpeg.vendor
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-1.0+ SPDX-license-identifier-GPL-2.0+ SPDX-license-identifier-LGPL-2.0+ SPDX-license-identifier-MIT SPDX-license-identifier-ISC SPDX-license-identifier-BSD SPDX-license-identifier-LGPL-2.1+ legacy_proprietary
-LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_LICENSE_CONDITIONS := notice proprietary by_exception_only
 
 LOCAL_VENDOR_MODULE := true
 

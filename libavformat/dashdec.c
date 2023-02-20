@@ -27,10 +27,13 @@
 #include "internal.h"
 #include "avio_internal.h"
 #include "dash.h"
+#include <pthread.h>
 
 #define INITIAL_BUFFER_SIZE 32768
 #define MAX_BPRINT_READ_SIZE (UINT_MAX - 1)
 #define DEFAULT_MANIFEST_SIZE 8 * 1024
+
+static pthread_mutex_t g_xml_lock = PTHREAD_MUTEX_INITIALIZER;
 
 struct fragment {
     int64_t url_offset;
@@ -1522,7 +1525,13 @@ static int refresh_manifest(AVFormatContext *s)
     c->audios = NULL;
     c->n_subtitles = 0;
     c->subtitles = NULL;
+#ifndef AMFFMPEG
     ret = parse_manifest(s, s->url, NULL);
+#else
+    pthread_mutex_lock(&g_xml_lock);
+    ret = parse_manifest(s, s->url, NULL);
+    pthread_mutex_unlock(&g_xml_lock);
+#endif
     if (ret)
         goto finish;
 
@@ -2080,8 +2089,16 @@ static int dash_read_header(AVFormatContext *s)
     if ((ret = save_avio_options(s)) < 0)
         goto fail;
 
+#ifndef AMFFMPEG
     if ((ret = parse_manifest(s, s->url, s->pb)) < 0)
         goto fail;
+#else
+    pthread_mutex_lock(&g_xml_lock);
+    ret = parse_manifest(s, s->url, s->pb);
+    pthread_mutex_unlock(&g_xml_lock);
+    if (ret < 0)
+        goto fail;
+#endif
 
     /* If this isn't a live stream, fill the total duration of the
      * stream. */

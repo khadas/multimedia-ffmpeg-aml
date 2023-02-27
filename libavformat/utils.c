@@ -2849,6 +2849,10 @@ static void estimate_timings_from_pts(AVFormatContext *ic, int64_t old_offset)
     int found_duration = 0;
     int is_end;
     int64_t filesize, offset, duration;
+#ifdef AMFFMPEG
+    int64_t limit_position = 0;
+    int64_t max_position = 0;
+#endif
     int retry = 0;
 
     /* flush packet queue */
@@ -2957,6 +2961,95 @@ static void estimate_timings_from_pts(AVFormatContext *ic, int64_t old_offset)
             }
         }
     }
+
+#ifdef AMFFMPEG
+    /*If not find pts at end of the file, We will look for the last pts from start to end*/
+    if (!found_duration) {
+        int found_pes_header = 0;
+        limit_position = 0;
+        max_position = filesize;
+        offset = filesize;
+        /*Look for the last pes header*/
+        do {
+            if (!found_pes_header) {
+                max_position = offset;
+                av_log(ic, AV_LOG_ERROR, "not found_pes_header\n");
+            } else {
+                limit_position = offset;
+                av_log(ic, AV_LOG_ERROR, "found_pes_header\n");
+            }
+            offset = limit_position + (max_position - limit_position) / 2;
+            av_log(ic, AV_LOG_ERROR, "offset:%lld limit:%lld max:%lld\n", offset, limit_position, max_position);
+
+            if (FFABS(limit_position - max_position) < 188)
+                break;
+
+            avio_seek(ic->pb, offset, SEEK_SET);
+            ret = ic->iformat->read_packet(ic, pkt);
+            if (ret < 0) {
+                found_pes_header = 0;
+            } else {
+                found_pes_header = 1;
+            }
+        }while (offset && (offset < filesize));
+
+        /*Look for the last pts beside the last pes header*/
+        offset = offset - (DURATION_MAX_READ_SIZE);
+        if (offset < 0)
+        offset = 0;
+
+        avio_seek(ic->pb, offset, SEEK_SET);
+        read_size = 0;
+        for (;;) {
+            if (read_size >= DURATION_MAX_READ_SIZE)
+                break;
+            do {
+                ret = ff_read_packet(ic, pkt);
+            } while (ret == AVERROR(EAGAIN));
+            if (ret != 0)
+                break;
+            read_size += pkt->size;
+            st         = ic->streams[pkt->stream_index];
+            if (!strcmp(ic->iformat->name, "mpegts") &&
+                (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) &&
+                (pkt->pts != AV_NOPTS_VALUE ||
+                pkt->dts != AV_NOPTS_VALUE)) {
+                ff_reduce_index(ic, st->index);
+                av_add_index_entry(st, pkt->pos, ((pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts),
+                                   0, 0, AVINDEX_KEYFRAME);
+            }
+            if (pkt->pts != AV_NOPTS_VALUE &&
+                (st->start_time != AV_NOPTS_VALUE ||
+                st->first_dts  != AV_NOPTS_VALUE)) {
+                if (pkt->duration == 0) {
+                    ff_compute_frame_duration(ic, &num, &den, st, st->parser, pkt);
+                    if (den && num) {
+                        pkt->duration = av_rescale_rnd(1,
+                            num * (int64_t) st->time_base.den,
+                            den * (int64_t) st->time_base.num,
+                            AV_ROUND_DOWN);
+                    }
+                }
+                duration = pkt->pts + pkt->duration;
+                if (st->start_time != AV_NOPTS_VALUE)
+                    duration -= st->start_time;
+                else
+                    duration -= st->first_dts;
+                if (duration > 0) {
+                    if (st->duration == AV_NOPTS_VALUE || st->internal->info->last_duration<= 0 ||
+                        (st->duration < duration && FFABS(duration - st->internal->info->last_duration) < 60LL*st->time_base.den / st->time_base.num))
+                        st->duration = duration;
+
+                    st->internal->info->last_duration = duration;
+                }
+                av_packet_unref(pkt);
+                break;
+            }
+            av_packet_unref(pkt);
+        }
+    }
+#endif
+
 skip_duration_calc:
     fill_all_stream_timings(ic);
 

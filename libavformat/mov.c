@@ -8812,6 +8812,10 @@ static const AVOption mov_options[] = {
     { "enable_drefs", "Enable external track support.", OFFSET(enable_drefs), AV_OPT_TYPE_BOOL,
         {.i64 = 0}, 0, 1, FLAGS },
     { "keyframe_count", "keyframe_count.", OFFSET(keyframe_count), AV_OPT_TYPE_INT, {.i64 = 0}, 0, 1, AV_OPT_FLAG_DECODING_PARAM },
+#ifdef AMFFMPEG
+    { "partitioned_frame", "partitioned_frame", OFFSET(partitioned_frame), AV_OPT_TYPE_BOOL,
+        {.i64 = 0}, 0, 1, 0 },
+#endif
     { NULL },
 };
 

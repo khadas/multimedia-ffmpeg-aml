@@ -3568,6 +3568,9 @@ static av_cold int decode_init(AVCodecContext *avctx)
 static const AVOption mpeg4_options[] = {
     {"quarter_sample", "1/4 subpel MC", OFFSET(quarter_sample), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, FLAGS},
     {"divx_packed", "divx style packed b frames", OFFSET(divx_packed), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, FLAGS},
+#ifdef AMFFMPEG
+    {"partitioned_frame", "partitioned_frame", offsetof(MpegEncContext,partitioned_frame), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, 0},
+#endif
     {NULL}
 };
 

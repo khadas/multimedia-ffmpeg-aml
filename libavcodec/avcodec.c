@@ -214,8 +214,12 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
                 av_opt_set_defaults(avctx->priv_data);
             }
         }
-        if (codec->priv_class && (ret = av_opt_set_dict(avctx->priv_data, &tmp)) < 0)
+        if (codec->priv_class && (ret = av_opt_set_dict(avctx->priv_data, &tmp)) < 0) {
+#ifdef AMFFMPEG
+            ret = AVERROR(EINVAL);
+#endif
             goto free_and_end;
+        }
     } else {
         avctx->priv_data = NULL;
     }
@@ -629,7 +633,10 @@ av_cold int avcodec_close(AVCodecContext *avctx)
     if (avctx->priv_data && avctx->codec && avctx->codec->priv_class)
         av_opt_free(avctx->priv_data);
     av_opt_free(avctx);
-    av_freep(&avctx->priv_data);
+#ifdef AMFFMPEG
+    if (avctx->priv_data)
+#endif
+        av_freep(&avctx->priv_data);
     if (av_codec_is_encoder(avctx->codec)) {
         av_freep(&avctx->extradata);
 #if FF_API_CODED_FRAME

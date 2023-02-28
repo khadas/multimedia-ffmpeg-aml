@@ -300,6 +300,9 @@ typedef struct MOVContext {
     uint8_t *decryption_key;
     int decryption_key_len;
     int enable_drefs;
+#ifdef AMFFMPEG
+    int partitioned_frame;
+#endif
     int32_t movie_display_matrix[3][3]; ///< display matrix from mvhd
     int have_read_mfra_size;
     uint32_t mfra_size;

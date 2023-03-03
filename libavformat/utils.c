@@ -2839,6 +2839,9 @@ static void estimate_timings_from_bit_rate(AVFormatContext *ic)
 
 #define DURATION_MAX_READ_SIZE 250000LL
 #define DURATION_MAX_RETRY 6
+#ifdef AMFFMPEG
+#define AV_BIGEST_PTS_VALUE 0x1FFFFFFFF
+#endif
 
 /* only usable for MPEG-PS streams */
 static void estimate_timings_from_pts(AVFormatContext *ic, int64_t old_offset)
@@ -2901,6 +2904,9 @@ static void estimate_timings_from_pts(AVFormatContext *ic, int64_t old_offset)
             read_size += pkt->size;
             st         = ic->streams[pkt->stream_index];
             if (pkt->pts != AV_NOPTS_VALUE &&
+#ifdef AMFFMPEG
+                pkt->pts <= AV_BIGEST_PTS_VALUE &&
+#endif
                 (st->start_time != AV_NOPTS_VALUE ||
                  st->first_dts  != AV_NOPTS_VALUE)) {
                 if (pkt->duration == 0) {

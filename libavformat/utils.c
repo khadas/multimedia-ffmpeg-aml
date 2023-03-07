@@ -4219,7 +4219,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
                 st->internal->info->frame_delay_evidence = 1;
         }
 #ifdef AMFFMPEG
-        if (st->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+        if (st->codecpar->codec_id == AV_CODEC_ID_HEVC || st->codecpar->codec_id == AV_CODEC_ID_H264) {
             if (st->parser && st->parser->parser->split && !avctx->extradata) {
                 int i = st->parser->parser->split(avctx, pkt->data, pkt->size);
                 if (i > 0 && i < FF_MAX_EXTRADATA_SIZE) {

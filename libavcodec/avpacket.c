@@ -382,6 +382,36 @@ uint8_t *av_packet_get_side_data(const AVPacket *pkt, enum AVPacketSideDataType 
     return NULL;
 }
 
+#ifdef AMFFMPEG
+int av_packet_update_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
+                            uint8_t *data, size_t size) {
+    AVPacketSideData* sidedate = pkt->side_data;
+    AVPacketSideData* target_sidedate = NULL;
+    if (sidedate) {
+        for (int i = 0; i < pkt->side_data_elems ; i++) {
+            if (sidedate[i].type == type) {
+                target_sidedate = sidedate+i;
+                break;
+            }
+        }
+    }
+
+    if (target_sidedate) {
+        av_free(target_sidedate->data);
+    } else {
+        pkt->side_data = av_realloc(pkt->side_data, (pkt->side_data_elems+1)*sizeof(AVPacketSideData));
+        target_sidedate = pkt->side_data + pkt->side_data_elems;
+        pkt->side_data_elems++;
+    }
+    if (target_sidedate) {
+        target_sidedate->type = type;
+        target_sidedate->size = size;
+        target_sidedate->data = av_memdup(data,target_sidedate->size);
+    }
+    return 0;
+}
+#endif
+
 const char *av_packet_side_data_name(enum AVPacketSideDataType type)
 {
     switch(type) {

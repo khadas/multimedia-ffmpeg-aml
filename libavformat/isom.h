@@ -309,6 +309,7 @@ typedef struct MOVContext {
 #ifdef AMFFMPEG
     MOVPsshInfo *pssh_info;
     unsigned pssh_count;
+    int found_audio_presentation;
 #endif
     int keyframe_count;
 } MOVContext;

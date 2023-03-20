@@ -291,6 +291,11 @@ enum AVPacketSideDataType {
     AV_PKT_DATA_S12M_TIMECODE,
 
     /**
+     * for AC4 audio.
+     */
+    AV_PKT_AUDIO_PRESELECTION_DATA,
+
+    /**
      * The number of side data types.
      * This is not part of the public API/ABI in the sense that it may
      * change when new side data types are added.
@@ -642,6 +647,11 @@ int av_packet_merge_side_data(AVPacket *pkt);
 
 attribute_deprecated
 int av_packet_split_side_data(AVPacket *pkt);
+#endif
+
+#ifdef AMFFMPEG
+int av_packet_update_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
+                            uint8_t *data, size_t size);
 #endif
 
 const char *av_packet_side_data_name(enum AVPacketSideDataType type);

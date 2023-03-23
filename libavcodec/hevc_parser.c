@@ -97,6 +97,11 @@ static int hevc_parse_slice_header(AVCodecParserContext *s, H2645NAL *nal,
     s->format       = ps->sps->pix_fmt;
     avctx->profile  = ps->sps->ptl.general_ptl.profile_idc;
     avctx->level    = ps->sps->ptl.general_ptl.level_idc;
+#ifdef AMFFMPEG
+    avctx->width    = ps->sps->width  - ow->left_offset - ow->right_offset;
+    avctx->height   = ps->sps->height - ow->top_offset  - ow->bottom_offset;
+    avctx->pix_fmt  = ps->sps->pix_fmt;
+#endif
 
     if (ps->vps->vps_timing_info_present_flag) {
         num = ps->vps->vps_num_units_in_tick;

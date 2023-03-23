@@ -3684,12 +3684,7 @@ static int64_t mpegts_get_dts(AVFormatContext *s, int stream_index,
             av_packet_free(&pkt);
             return AV_NOPTS_VALUE;
         }
-#ifdef AMFFMPEG
-        if (pkt->dts != AV_NOPTS_VALUE && pkt->pos >= 0 && (pkt->flags & AV_PKT_FLAG_KEY
-            || s->streams[pkt->stream_index]->codec->codec_id == AV_CODEC_ID_CAVS2)) {
-#else
         if (pkt->dts != AV_NOPTS_VALUE && pkt->pos >= 0) {
-#endif
             ff_reduce_index(s, pkt->stream_index);
             av_add_index_entry(s->streams[pkt->stream_index], pkt->pos, pkt->dts, 0, 0, AVINDEX_KEYFRAME /* FIXME keyframe? */);
             if (pkt->stream_index == stream_index && pkt->pos >= *ppos) {

@@ -252,6 +252,13 @@ int ff_ac3_parse_header(GetBitContext *gbc, AC3HeaderInfo *hdr)
     if (hdr->lfe_on)
         hdr->channel_layout |= AV_CH_LOW_FREQUENCY;
 
+#ifdef AMFFMPEG
+    if (hdr->frame_type == EAC3_FRAME_TYPE_DEPENDENT) {
+        av_log(NULL, AV_LOG_ERROR, "[%s:%d] dolby frame contain that DEPENDENT frame, that means 7.1ch\n", __FUNCTION__, __LINE__);
+        hdr->channels = 8;
+        hdr->channel_layout = AV_CH_LAYOUT_7POINT1;
+    }
+#endif
     return 0;
 }
 

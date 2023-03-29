@@ -283,6 +283,10 @@ typedef struct PESContext {
     AVBufferRef *buffer;
     SLConfigDescr sl;
     int merged_st;
+#ifdef AMFFMPEG
+    int pts_checked_count;
+    int pts_only_count;
+#endif
 } PESContext;
 
 extern AVInputFormat ff_mpegts_demuxer;
@@ -1359,6 +1363,19 @@ skip:
                     pes->dts = ff_parse_pes_pts(r);
                     r += 5;
                 }
+#ifdef AMFFMPEG
+#define PTS_CHECK_COUNT 10
+                if (pes->pts_checked_count < PTS_CHECK_COUNT) {
+                    pes->pts_checked_count++;
+                    if ((flags & 0xc0) == 0x80) {
+                        pes->pts_only_count++;
+                    }
+                    if (pes->pts_only_count == PTS_CHECK_COUNT
+                        && pes->st && pes->st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+                        av_dict_set_int(&pes->st->metadata, "pts_only", 1, 0);
+                    }
+                }
+#endif
                 pes->extended_stream_id = -1;
                 if (flags & 0x01) { /* PES extension */
                     pes_ext = *r++;
@@ -1511,6 +1528,10 @@ static PESContext *add_pes_stream(MpegTSContext *ts, int pid, int pcr_pid)
     pes->state   = MPEGTS_SKIP;
     pes->pts     = AV_NOPTS_VALUE;
     pes->dts     = AV_NOPTS_VALUE;
+#ifdef AMFFMPEG
+    pes->pts_checked_count = 0;
+    pes->pts_only_count = 0;
+#endif
     tss          = mpegts_open_pes_filter(ts, pid, mpegts_push_data, pes);
     if (!tss) {
         av_free(pes);

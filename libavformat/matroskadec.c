@@ -417,6 +417,12 @@ typedef struct MatroskaDemuxContext {
 
     /* Bandwidth value for WebM DASH Manifest */
     int bandwidth;
+
+#ifdef AMFFMPEG
+    /* 1 - can seek */
+    /* 0 - can't seek */
+    int64_t can_seek;
+#endif
 } MatroskaDemuxContext;
 
 #define CHILD_OF(parent) { .def = { .n = parent } }
@@ -1950,9 +1956,11 @@ static void matroska_execute_seekhead(MatroskaDemuxContext *matroska)
 
         elem->pos = pos;
 
+#ifdef AMFFMPEG
         // defer cues parsing until we actually need cue data.
-        if (id == MATROSKA_ID_CUES)
-            continue;
+        //if (id == MATROSKA_ID_CUES)
+        //    continue;
+#endif
 
         if (matroska_parse_seekhead_entry(matroska, pos) < 0) {
             // mark index as broken
@@ -2967,6 +2975,30 @@ static int matroska_parse_tracks(AVFormatContext *s)
     return 0;
 }
 
+#ifdef AMFFMPEG
+static int matroska_can_seek(AVFormatContext *s) {
+    MatroskaDemuxContext *matroska = s->priv_data;
+    if (matroska->index.nb_elem == 0 &&
+        matroska->cues_parsing_deferred == -1) {
+        av_log(NULL,AV_LOG_ERROR,"unsupported seek funftion. index.nb_elem:%d, seekhead.nb_elem:%d",matroska->index.nb_elem, matroska->seekhead.nb_elem);
+        return 0;
+    }
+
+    //cues entries num < 2 means unsupported seek funftion
+    if (matroska->index.nb_elem < 2) {
+        if (matroska->ctx->pb->seekable == 1 && matroska->index.nb_elem == 0) {
+            return 1;
+        }
+        av_log(NULL,AV_LOG_ERROR,"unsupported seek funftion. nb_index_entries:%d, index.nb_elem:%d",
+            s->streams[0]->nb_index_entries, matroska->index.nb_elem);
+        return 0;
+    }
+
+    //default seekable true.
+    return 1;
+}
+#endif
+
 static int matroska_read_header(AVFormatContext *s)
 {
     MatroskaDemuxContext *matroska = s->priv_data;
@@ -3121,6 +3153,9 @@ static int matroska_read_header(AVFormatContext *s)
     matroska_add_index_entries(matroska);
 
     matroska_convert_tags(s);
+#ifdef AMFFMPEG
+    matroska->can_seek = matroska_can_seek(s);
+#endif
 
     return 0;
 fail:
@@ -4391,6 +4426,9 @@ static int webm_dash_manifest_read_packet(AVFormatContext *s, AVPacket *pkt)
 static const AVOption options[] = {
     { "live", "flag indicating that the input is a live file that only has the headers.", OFFSET(is_live), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, AV_OPT_FLAG_DECODING_PARAM },
     { "bandwidth", "bandwidth of this stream to be specified in the DASH manifest.", OFFSET(bandwidth), AV_OPT_TYPE_INT, {.i64 = 0}, 0, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
+#ifdef AMFFMPEG
+    { "can_seek", "can_seek.", OFFSET(can_seek), AV_OPT_TYPE_INT64, {.i64 = 1}, 0, 1, AV_OPT_FLAG_DECODING_PARAM },
+#endif
     { NULL },
 };
 
@@ -4411,7 +4449,10 @@ AVInputFormat ff_matroska_demuxer = {
     .read_packet    = matroska_read_packet,
     .read_close     = matroska_read_close,
     .read_seek      = matroska_read_seek,
-    .mime_type      = "audio/webm,audio/x-matroska,video/webm,video/x-matroska"
+    .mime_type      = "audio/webm,audio/x-matroska,video/webm,video/x-matroska",
+#ifdef AMFFMPEG
+    .priv_class     = &webm_dash_class,
+#endif
 };
 
 AVInputFormat ff_webm_dash_manifest_demuxer = {

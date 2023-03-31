@@ -34,7 +34,7 @@ static int avs3_find_frame_end(ParseContext *pc, const uint8_t *buf, int buf_siz
     if (!pic_found) {
         for (; cur < buf_size; ++cur) {
             state = (state << 8) | buf[cur];
-            if (AVS3_ISPIC(buf[cur])){
+            if (AVS3_ISPIC(buf[cur])) {
                 cur++;
                 pic_found = 1;
                 break;
@@ -73,23 +73,31 @@ static void parse_avs3_nal_units(AVCodecParserContext *s, const uint8_t *buf,
             GetBitContext gb;
             int profile, ratecode;
 
-            init_get_bits(&gb, buf + 4, buf_size - 4);
+            init_get_bits8(&gb, buf + 4, buf_size - 4);
 
             s->key_frame = 1;
             s->pict_type = AV_PICTURE_TYPE_I;
 
             profile = get_bits(&gb, 8);
-            // Skip bits: level(8)
-            //            progressive(1)
+
+            avctx->level = get_bits(&gb, 8);
+
+            // Skip bits: progressive(1)
             //            field(1)
             //            library(2)
             //            resv(1)
-            //            width(14)
-            //            resv(1)
-            //            height(14)
-            //            chroma(2)
+            skip_bits(&gb, 5);
+
+            avctx->width = get_bits(&gb, 14);
+
+            // Skip bits: resv(1)
+            skip_bits(&gb, 1);
+
+            avctx->height = get_bits(&gb, 14);
+
+            // Skip bits: chroma(2)
             //            sampe_precision(3)
-            skip_bits(&gb, 47);
+            skip_bits(&gb, 5);
 
             if (profile == AVS3_PROFILE_BASELINE_MAIN10) {
                 int sample_precision = get_bits(&gb, 3);

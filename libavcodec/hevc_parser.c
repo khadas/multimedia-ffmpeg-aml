@@ -193,6 +193,9 @@ static int parse_nal_units(AVCodecParserContext *s, const uint8_t *buf,
     HEVCParamSets *ps = &ctx->ps;
     HEVCSEI *sei = &ctx->sei;
     int ret, i;
+#ifdef AMFFMPEG
+    int has_sps = 0, has_pps = 0;
+#endif
 
     /* set some sane default values */
     s->pict_type         = AV_PICTURE_TYPE_I;
@@ -217,12 +220,23 @@ static int parse_nal_units(AVCodecParserContext *s, const uint8_t *buf,
         case HEVC_NAL_VPS:
             ff_hevc_decode_nal_vps(gb, avctx, ps);
             break;
+#ifdef AMFFMPEG
+        case HEVC_NAL_SPS:
+            has_sps = 1;
+            ff_hevc_decode_nal_sps(gb, avctx, ps, 1);
+            break;
+        case HEVC_NAL_PPS:
+            has_pps = 1;
+            ff_hevc_decode_nal_pps(gb, avctx, ps);
+            break;
+#else
         case HEVC_NAL_SPS:
             ff_hevc_decode_nal_sps(gb, avctx, ps, 1);
             break;
         case HEVC_NAL_PPS:
             ff_hevc_decode_nal_pps(gb, avctx, ps);
             break;
+#endif
         case HEVC_NAL_SEI_PREFIX:
         case HEVC_NAL_SEI_SUFFIX:
             ff_hevc_decode_nal_sei(gb, avctx, sei, ps, nal->type);
@@ -259,8 +273,19 @@ static int parse_nal_units(AVCodecParserContext *s, const uint8_t *buf,
                 s->repeat_pict = 2;
             }
             ret = hevc_parse_slice_header(s, nal, avctx);
+#ifdef AMFFMPEG
+            if (ret) {
+                if (!s->key_frame && has_sps && has_pps && s->pict_type == AV_PICTURE_TYPE_I
+                    && (s->picture_structure == AV_PICTURE_STRUCTURE_TOP_FIELD
+                    || s->picture_structure == AV_PICTURE_STRUCTURE_BOTTOM_FIELD)) {
+                    s->key_frame = 1;
+                }
+                return ret;
+            }
+#else
             if (ret)
                 return ret;
+#endif
             break;
         }
     }

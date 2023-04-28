@@ -522,6 +522,9 @@ enum AVCodecID {
     AV_CODEC_ID_SIREN,
     AV_CODEC_ID_HCA,
     AV_CODEC_ID_FASTAUDIO,
+#ifdef AMFFMPEG
+    AV_CODEC_ID_AVS3_AUDIO,        // AVS3-P3 3D Audio/Audio Vivid Audio Codec ID
+#endif
 
     /* subtitle codecs */
     AV_CODEC_ID_FIRST_SUBTITLE = 0x17000,          ///< A dummy ID pointing at the start of subtitle codecs.

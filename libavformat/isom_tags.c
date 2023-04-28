@@ -346,6 +346,7 @@ const AVCodecTag ff_codec_movaudio_tags[] = {
     { AV_CODEC_ID_MPEGH_3D_AUDIO,  MKTAG('m', 'h', 'm', '1') }, /* MPEG-H 3D Audio bitstream */
 #ifdef AMFFMPEG
     { AV_CODEC_ID_AC4,             MKTAG('a', 'c', '-', '4') },
+    { AV_CODEC_ID_AVS3_AUDIO,      MKTAG('a', 'v', '3', 'a') }, /* AVS3-P3 3D Audio/ Audio Vivid bitstream */
 #endif
     { AV_CODEC_ID_NONE, 0 },
 };

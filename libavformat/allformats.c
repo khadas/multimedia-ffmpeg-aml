@@ -108,6 +108,8 @@ extern AVInputFormat  ff_cavsvideo_demuxer;
 extern AVOutputFormat ff_cavsvideo_muxer;
 #ifdef AMFFMPEG
 extern AVInputFormat  ff_cavs2video_demuxer;
+extern AVOutputFormat ff_av3a_muxer;
+extern AVInputFormat  ff_av3a_demuxer;
 //extern AVOutputFormat ff_cavs2video_muxer;
 #endif
 extern AVInputFormat  ff_cdg_demuxer;

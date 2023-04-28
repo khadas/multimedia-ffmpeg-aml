@@ -902,6 +902,7 @@ static const StreamType REGD_types[] = {
     { MKTAG('D', 'R', 'A', '1'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_DRA   },
     { MKTAG('d', 'v', 'h', 'e'), AVMEDIA_TYPE_VIDEO , AV_CODEC_ID_HEVC}, /* HEVC Dobly vision  ES  dvhe*/
     { MKTAG('D', 'O', 'V', 'I'), AVMEDIA_TYPE_VIDEO , AV_CODEC_ID_HEVC}, /* HEVC Dobly vision  ES  dovi*/
+    { MKTAG('a', 'v', '3', 'a'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_AVS3_AUDIO},
 #endif
     { 0 },
 };

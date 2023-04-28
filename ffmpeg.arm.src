@@ -922,6 +922,7 @@ libavformat/yuv4mpegenc.c
 libavformat/dtsdec.c 
 libavformat/dtshddec.c 
 libavformat/ac3dec.c 
+libavformat/av3adec.c
 libavcodec/012v.c 
 libavcodec/4xm.c 
 libavcodec/8bps.c 
@@ -1121,6 +1122,8 @@ libavcodec/avrndec.c
 libavcodec/avs.c 
 libavcodec/avs2_parser.c 
 libavcodec/avs3_parser.c 
+libavcodec/av3a.c
+libavcodec/av3a_parser.c
 libavcodec/avuidec.c 
 libavcodec/avuienc.c 
 libavcodec/bethsoftvideo.c 

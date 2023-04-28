@@ -132,6 +132,7 @@
 #ifdef AMFFMPEG
 #define STREAM_TYPE_VIDEO_CAVS2     0xd2
 #define STREAM_TYPE_VIDEO_AVS3      0xd4
+#define STREAM_TYPE_AUDIO_AVS3      0xd5
 #endif
 #define STREAM_TYPE_VIDEO_VC1       0xea
 #define STREAM_TYPE_VIDEO_DIRAC     0xd1

@@ -8775,6 +8775,9 @@ static int mov_read_seek(AVFormatContext *s, int stream_index, int64_t sample_ti
     if (sample < 0)
         return sample;
 
+#ifdef AMFFMPEG
+reseek:
+#endif
     if (mc->seek_individually) {
         /* adjust seek timestamp to found sample timestamp */
         int64_t seek_timestamp = st->index_entries[sample].timestamp;
@@ -8788,9 +8791,20 @@ static int mov_read_seek(AVFormatContext *s, int stream_index, int64_t sample_ti
                 continue;
 
             timestamp = av_rescale_q(seek_timestamp, s->streams[stream_index]->time_base, st->time_base);
+#ifdef AMFFMPEG
+            int sample_current;
+            sample_current = mov_seek_stream(s, st, timestamp, flags);
+            if (sample_current >= 0)
+                st->internal->skip_samples = mov_get_skip_samples(st, sample_current);
+            else {
+                mc->seek_individually = 0;
+                goto reseek;
+            }
+#else
             sample = mov_seek_stream(s, st, timestamp, flags);
             if (sample >= 0)
                 st->internal->skip_samples = mov_get_skip_samples(st, sample);
+#endif
         }
     } else {
         for (i = 0; i < s->nb_streams; i++) {

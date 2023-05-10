@@ -1956,12 +1956,6 @@ static void matroska_execute_seekhead(MatroskaDemuxContext *matroska)
 
         elem->pos = pos;
 
-#ifdef AMFFMPEG
-        // defer cues parsing until we actually need cue data.
-        //if (id == MATROSKA_ID_CUES)
-        //    continue;
-#endif
-
         if (matroska_parse_seekhead_entry(matroska, pos) < 0) {
             // mark index as broken
             matroska->cues_parsing_deferred = -1;

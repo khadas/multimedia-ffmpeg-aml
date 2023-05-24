@@ -27,6 +27,9 @@
 #include "libavutil/parseutils.h"
 #include "libavutil/avstring.h"
 #include "libavutil/opt.h"
+#ifdef AMFFMPEG
+#include "libavutil/intreadwrite.h"
+#endif
 #include "avformat.h"
 #include "avio_internal.h"
 #include "rtp.h"
@@ -61,11 +64,20 @@ typedef struct RTPContext {
     char *block;
     char *fec_options_str;
     int64_t rw_timeout;
+#ifdef AMFFMPEG
+    int discard_rtp_header;
+    int datalen;
+    char* databuf;
+#endif
 } RTPContext;
 
 #define OFFSET(x) offsetof(RTPContext, x)
 #define D AV_OPT_FLAG_DECODING_PARAM
 #define E AV_OPT_FLAG_ENCODING_PARAM
+#ifdef AMFFMPEG
+#define MAX_PACKET_SIZE     65535
+#define RTP_HEADER_SIZE     12
+#endif
 static const AVOption options[] = {
     { "ttl",                "Time to live (in milliseconds, multicast only)",                   OFFSET(ttl),             AV_OPT_TYPE_INT,    { .i64 = -1 },    -1, INT_MAX, .flags = D|E },
     { "buffer_size",        "Send/Receive buffer size (in bytes)",                              OFFSET(buffer_size),     AV_OPT_TYPE_INT,    { .i64 = -1 },    -1, INT_MAX, .flags = D|E },
@@ -80,6 +92,9 @@ static const AVOption options[] = {
     { "sources",            "Source list",                                                      OFFSET(sources),         AV_OPT_TYPE_STRING, { .str = NULL },               .flags = D|E },
     { "block",              "Block list",                                                       OFFSET(block),           AV_OPT_TYPE_STRING, { .str = NULL },               .flags = D|E },
     { "fec",                "FEC",                                                              OFFSET(fec_options_str), AV_OPT_TYPE_STRING, { .str = NULL },               .flags = E },
+#ifdef AMFFMPEG
+    { "discard_rtp_header", "discard rtp header",                                            OFFSET(discard_rtp_header), AV_OPT_TYPE_BOOL,   { .i64 =  0 },     0, 1,       .flags = D|E },
+#endif
     { NULL }
 };
 
@@ -284,6 +299,11 @@ static int rtp_open(URLContext *h, const char *uri, int flags)
             ff_ip_parse_blocks(h, s->block, &s->filters);
             block = s->block;
         }
+#ifdef AMFFMPEG
+        if (av_find_info_tag(buf, sizeof(buf), "discard_rtp_header", p)) {
+            s->discard_rtp_header = strtol(buf, NULL, 10);
+        }
+#endif
     }
     if (s->rw_timeout >= 0)
         h->rw_timeout = s->rw_timeout;
@@ -376,7 +396,47 @@ static int rtp_open(URLContext *h, const char *uri, int flags)
     av_dict_free(&fec_opts);
     return AVERROR(EIO);
 }
+#ifdef AMFFMPEG
+// get rtp payload pointer and length.
+static char* parse_rtp_data_len(char* buf, int* len)
+{
+    if (buf == NULL || len == NULL || *len < RTP_HEADER_SIZE)
+        return buf;
 
+    int csrc, ext, payload_type;
+    csrc         = buf[0] & 0x0f;
+    ext          = buf[0] & 0x10;
+    payload_type = buf[1] & 0x7f;
+
+    if (buf[0] & 0x20) {
+        int padding = buf[*len - 1];
+        if (*len >= RTP_HEADER_SIZE + padding)
+            *len -= padding;
+    }
+
+    *len -= RTP_HEADER_SIZE;
+    buf += RTP_HEADER_SIZE;
+    if (*len < 4 * csrc)
+        return buf;
+    *len   -= 4 * csrc;
+    buf   += 4 * csrc;
+    if (!ext)
+        return buf;
+
+    if (len < 4)
+        return buf;
+    /* calculate the header extension length (stored as number
+        * of 32-bit words) */
+    ext = (AV_RB16(buf + 2) + 1) << 2;
+
+    if (*len < ext)
+        return buf;
+    // skip past RTP header extension
+    len -= ext;
+    buf += ext;
+    return buf;
+}
+#endif
 static int rtp_read(URLContext *h, uint8_t *buf, int size)
 {
     RTPContext *s = h->priv_data;
@@ -397,6 +457,51 @@ static int rtp_read(URLContext *h, uint8_t *buf, int size)
                 if (!(p[i].revents & POLLIN))
                     continue;
                 *addr_lens[i] = sizeof(*addrs[i]);
+#ifdef AMFFMPEG
+                if (s->discard_rtp_header && i == 0) {
+                    int readsize = 0;
+                    if (s->datalen > 0) {
+                        if (s->datalen < size) {
+                            memcpy(buf, s->databuf, s->datalen);
+                            buf += s->datalen;
+                            size -= s->datalen;
+                            readsize = s->datalen;
+                            s->datalen = 0;
+                            av_log(h, AV_LOG_INFO, "%s at L%d rtpdata, size=%d, write priv datalen=%d.\n",__func__, __LINE__, size, readsize);
+                        } else {
+                            memcpy(buf, s->databuf, size);
+                            s->datalen -= size;
+                            if (s->datalen > 0)
+                                memmove(s->databuf, s->databuf+size, s->datalen);
+                            av_log(h, AV_LOG_INFO, "%s at L%d rtpdata, size=%d, write priv datalen=%d and buffer remainlen=%d.\n",__func__, __LINE__, size, size, s->datalen);
+                            return size;
+                        }
+                    }
+                    if (s->databuf == NULL)
+                        s->databuf = av_mallocz(MAX_PACKET_SIZE);
+                    if (size > MAX_PACKET_SIZE)
+                        size = MAX_PACKET_SIZE;
+                    len = recvfrom(p[i].fd, s->databuf, MAX_PACKET_SIZE, 0, (struct sockaddr *)addrs[i], addr_lens[i]);
+                    if (len < 0) {
+                        if (ff_neterrno() == AVERROR(EAGAIN) ||
+                            ff_neterrno() == AVERROR(EINTR))
+                            continue;
+                        return AVERROR(EIO);
+                    }
+                    if (ff_ip_check_source_lists(addrs[i], &s->filters))
+                        continue;
+                    int payloadlen = len;
+                    char* pdata = parse_rtp_data_len(s->databuf, &payloadlen);
+                    int writelen = size>payloadlen?payloadlen:size;
+                    memcpy(buf, pdata, writelen);
+                    if (payloadlen > size) {
+                        s->datalen = payloadlen-size;
+                        memmove(s->databuf, pdata+size, s->datalen);
+                    }
+                    av_log(h, AV_LOG_INFO, "%s at L%d rtpdata, size=%d, readlen=%d, payloadlen=%d, remainlen=%d, returnlen=%d.\n",__func__, __LINE__, size, len, payloadlen, s->datalen, writelen+readsize);
+                    return writelen+readsize;
+                } else
+#endif
                 len = recvfrom(p[i].fd, buf, size, 0,
                                 (struct sockaddr *)addrs[i], addr_lens[i]);
                 if (len < 0) {
@@ -511,6 +616,13 @@ static int rtp_close(URLContext *h)
 {
     RTPContext *s = h->priv_data;
 
+#ifdef AMFFMPEG
+    if (s->databuf != NULL) {
+        av_free(s->databuf);
+        s->databuf = NULL;
+        s->datalen = 0;
+    }
+#endif
     ff_ip_reset_filters(&s->filters);
 
     ffurl_closep(&s->rtp_hd);

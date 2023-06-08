@@ -124,7 +124,13 @@ struct Program {
     /** have we found pmt for this program */
     int pmt_found;
 };
-
+#ifdef AMFFMPEG
+struct ca_descriptor {
+    uint32_t ca_system_id;
+    uint32_t ecm_pid;
+    uint32_t private_len;
+};
+#endif
 struct MpegTSContext {
     const AVClass *class;
     /* user data */
@@ -185,6 +191,10 @@ struct MpegTSContext {
 
     int page_number;
     int magazine_number;
+
+    uint8_t* ca_descriptor_list;    //Multiple ca descriptors pointer
+    uint32_t ca_descriptor_size;
+    uint32_t ca_descriptor_capacity;
 #endif
 };
 
@@ -216,6 +226,8 @@ static const AVOption options[] = {
      {.i64 = 0}, 0, 0x1fff, AV_OPT_FLAG_EXPORT},
     {"private_data", "private data in ca descriptor", offsetof(MpegTSContext, private_data), AV_OPT_TYPE_BINARY,
      0, 0, AV_OPT_FLAG_EXPORT},
+    {"ca_descriptor_list", "ca_descriptor list pointer", offsetof(MpegTSContext, ca_descriptor_list), AV_OPT_TYPE_BINARY, 0, 0, AV_OPT_FLAG_EXPORT},
+    {"ca_descriptor_size", "ca_descriptor byte size", offsetof(MpegTSContext, ca_descriptor_size), AV_OPT_TYPE_INT,  {.i64 = 0}, 0, 0xffff, AV_OPT_FLAG_EXPORT},
 #endif
     { NULL },
 };
@@ -1910,6 +1922,37 @@ typedef struct dvbpsi_teletext_dr_s
   dvbpsi_teletextpage_t p_pages[64];
 
 } dvbpsi_teletext_dr_t;
+static int update_ca_descriptor(MpegTSContext *ts, uint32_t ca_system_id, uint32_t ecm_pid, uint32_t private_len, uint8_t* private_data) {
+    struct ca_descriptor* cadesc = NULL;
+    uint8_t* tmp;
+
+    if (!ts)
+        return -1;
+    if (ts->ca_descriptor_capacity == 0) {
+        ts->ca_descriptor_capacity = sizeof(struct ca_descriptor)*8;
+        ts->ca_descriptor_list = av_mallocz(ts->ca_descriptor_capacity);
+        ts->ca_descriptor_size = 0;
+    } else if (ts->ca_descriptor_size + sizeof(struct ca_descriptor) + private_len > ts->ca_descriptor_capacity) {
+        ts->ca_descriptor_capacity *= 2;
+        tmp = av_mallocz(ts->ca_descriptor_capacity);
+        memcpy(tmp, ts->ca_descriptor_list, ts->ca_descriptor_size);
+        av_free(ts->ca_descriptor_list);
+        ts->ca_descriptor_list = tmp;
+    }
+
+    cadesc = (struct ca_descriptor*)(ts->ca_descriptor_list + ts->ca_descriptor_size);
+    cadesc->ca_system_id = ca_system_id;
+    cadesc->ecm_pid = ecm_pid;
+    cadesc->private_len = private_len;
+    ts->ca_descriptor_size += sizeof(struct ca_descriptor);
+    if (private_len > 0) {
+        memcpy(ts->ca_descriptor_list + ts->ca_descriptor_size, private_data, private_len);
+        ts->ca_descriptor_size += private_len;
+    }
+    av_log(NULL, AV_LOG_INFO, "[%s:%d]ca_descriptor_capacity:%d, ca_descriptor_size=%d,ca_descriptor_list=%p\n", __func__, __LINE__, ts->ca_descriptor_capacity, ts->ca_descriptor_size, ts->ca_descriptor_list);
+    av_log(NULL, AV_LOG_INFO, "[%s:%d]ca_system_id:0x%x, ecmpid=0x%x, private_len=%d\n", __func__, __LINE__, ca_system_id, ecm_pid, private_len);
+    return ts->ca_descriptor_size;
+}
 #endif
 
 int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type,
@@ -2488,7 +2531,7 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
             ts->private_data = av_malloc(desc_len);
             memcpy(ts->private_data, *pp, desc_len);
         }
-
+        update_ca_descriptor(ts, ts->ca_system_id, ecm_pid, desc_len, *pp);
         break;
 #endif
     default:
@@ -2676,6 +2719,7 @@ static void pmt_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
                 ts->private_data = av_malloc(len);
                 memcpy(ts->private_data, p, len);
             }
+            update_ca_descriptor(ts, ts->ca_system_id, ecm_pid, len, p);
 #else
             if (av_opt_set_int(ts, "ca_system_id", ts->ca_system_id, 0) != 0)
                 av_log(ts->stream, AV_LOG_WARNING, "set cas id error!\n");
@@ -3412,6 +3456,11 @@ static int mpegts_read_header(AVFormatContext *s)
     int64_t seekback = FFMAX(s->probesize, (int64_t)ts->resync_size + PROBE_PACKET_MAX_BUF);
 
     s->internal->prefer_codec_framerate = 1;
+#ifdef AMFFMPEG
+    ts->ca_descriptor_capacity = 0;
+    ts->ca_descriptor_size = 0;
+    ts->ca_descriptor_list = NULL;
+#endif
     if (ffio_ensure_seekback(pb, seekback) < 0)
         av_log(s, AV_LOG_WARNING, "Failed to allocate buffers for seekback\n");
 
@@ -3607,6 +3656,12 @@ static void mpegts_free(MpegTSContext *ts)
     if (ts->private_data != NULL) {
         av_free(ts->private_data);
         ts->private_data = NULL;
+    }
+    if (ts->ca_descriptor_list != NULL) {
+        av_free(ts->ca_descriptor_list);
+        ts->ca_descriptor_list = NULL;
+        ts->ca_descriptor_size = 0;
+        ts->ca_descriptor_capacity = 0;
     }
 #endif
 

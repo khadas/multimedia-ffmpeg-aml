@@ -2495,6 +2495,13 @@ static int seek_frame_generic(AVFormatContext *s, int stream_index,
         }
         index = av_index_search_timestamp(st, timestamp, flags);
     }
+#ifdef AMFFMPEG
+    // ingore search timestamp fail for mkv hevc stream
+    if (index < 0 && st->codecpar->codec_id == AV_CODEC_ID_HEVC
+        && s->iformat && s->iformat->name && strstr(s->iformat->name, "matroska,webm")) {
+        return 0;
+    }
+#endif
     if (index < 0)
         return -1;
 

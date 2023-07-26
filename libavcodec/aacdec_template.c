@@ -600,6 +600,14 @@ static void flush(AVCodecContext *avctx)
             if (che) {
                 for (j = 0; j <= 1; j++) {
                     memset(che->ch[j].saved, 0, sizeof(che->ch[j].saved));
+#ifdef AMFFMPEG
+                    // LTP buffer related data buffer
+                    // or windowing overlapping
+                    memset(che->ch[j].coeffs, 0, sizeof(che->ch[j].coeffs));
+                    // sbr context should be reseted and function pointers should be applied too
+                    memset(&che->sbr, 0, sizeof(che->sbr));
+                    AAC_RENAME(ff_aac_sbr_ctx_init)(ac, &che->sbr, type);
+#endif
                 }
             }
         }

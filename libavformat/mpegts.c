@@ -1942,9 +1942,9 @@ static int update_ca_descriptor(MpegTSContext *ts, uint32_t ca_system_id, uint32
     }
 
     cadesc = (struct ca_descriptor*)(ts->ca_descriptor_list + ts->ca_descriptor_size);
-    cadesc->ca_system_id = ca_system_id;
-    cadesc->ecm_pid = ecm_pid;
-    cadesc->private_len = private_len;
+    memcpy(&(cadesc->ca_system_id), &ca_system_id, sizeof(uint32_t));
+    memcpy(&(cadesc->ecm_pid), &ecm_pid, sizeof(uint32_t));
+    memcpy(&(cadesc->private_len), &private_len, sizeof(uint32_t));
     ts->ca_descriptor_size += sizeof(struct ca_descriptor);
     if (private_len > 0) {
         memcpy(ts->ca_descriptor_list + ts->ca_descriptor_size, private_data, private_len);

@@ -193,6 +193,7 @@ filegroup {
         "libavformat/tls_mbedtls.c",
         "libavformat/tls_gnutls.c",
         "libavformat/sctp.c",
+        "libavformat/dashdec.c",
         "libavcodec/cbs_h264_syntax_template.c",
         "libavcodec/cbs_av1_syntax_template.c",
         "libavcodec/bsf_list.c",
@@ -310,7 +311,7 @@ cc_library_shared {
 
     include_dirs: [
         "external/zlib",
-        "external/libxml2/include",
+        //"external/libxml2/include",
         "vendor/amlogic/common/external/ffmpeg",
     ],
 
@@ -322,7 +323,7 @@ cc_library_shared {
         "libcutils",
         //"libssl",
         //"libcrypto",
-        "libxml2"
+        //"libxml2"
     ],
 }
 

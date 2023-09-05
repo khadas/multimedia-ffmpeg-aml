@@ -31,7 +31,6 @@ func ffmpegDefaults(ctx android.LoadHookContext) {
 func getCflags(ctx android.BaseContext) ([]string) {
     var cflags []string
     var arch = string(ctx.DeviceConfig().DeviceArch())
-    fmt.Println("Define TARGET_ARCH:",arch)
     if arch == "arm" || arch == "arm64" {
         cflags = append(cflags,
                         "-std=c99",
@@ -49,7 +48,6 @@ func getCflags(ctx android.BaseContext) ([]string) {
     if giterr != nil {
         fmt.Printf("get git err, gitout %s\n", gitout)
     } else {
-        fmt.Printf("dir: %s, git: %s\n", dir + "/" + ctx.ModuleDir(), string(gitout))
         gitversion := "" + string(gitout)
         buildname := " (" + string(ctx.Config().Getenv("LOGNAME")) + " "
         timecmd, timeerr := exec.Command("/bin/bash", "-c", "date").CombinedOutput()
@@ -58,49 +56,8 @@ func getCflags(ctx android.BaseContext) ([]string) {
             fmt.Println("get time error")
         }
         ver := "-DGIT_INFO=" + "\"" + gitversion + buildname + buildtime + "\""
-        fmt.Println(string(ver))
         cflags = append(cflags, ver)
     }
-    fmt.Println(string(ctx.Config().Getenv("LOGNAME")))
 
     return cflags
 }
-
-//func getSrcs(ctx android.BaseContext) ([]string) {
-//    var srcs []string
-//    var arch = string(ctx.DeviceConfig().DeviceArch())
-//    var dir = string(ctx.Config().Getenv("PWD")) + "/" + ctx.ModuleDir()
-//    fmt.Printf("dir %s\n", dir)
-//    if arch == "arm" {
-//        file, err := os.Open(string(dir) + "/" + "ffmpeg.arm.src")
-//        if err != nil {
-//            fmt.Println(err)
-//            return srcs
-//        }
-//        defer file.Close()
-//        rd := bufio.NewReader(file)
-//        for {
-//            src, _, err := rd.ReadLine()
-//            if err != nil || err == io.EOF {
-//                break
-//            }
-//            srcs = append(srcs, string(src))
-//        }
-//    } else if arch == "arm64" {
-//        file, err := os.Open(string(dir) + "/" + "ffmpeg.arm64.src")
-//        if err != nil {
-//            fmt.Println(err)
-//            return srcs
-//        }
-//        defer file.Close()
-//        rd := bufio.NewReader(file)
-//        for {
-//            src, _, err := rd.ReadLine()
-//            if err != nil || err == io.EOF {
-//                break
-//            }
-//            srcs = append(srcs, string(src))
-//        }
-//    }
-//    return srcs;
-//}

@@ -3976,7 +3976,28 @@ static int matroska_read_seek(AVFormatContext *s, int stream_index,
     }
 
     /* We seek to a level 1 element, so set the appropriate status. */
+#ifdef AMFFMPEG
+    /* If has subtitle track, adjust seek position to previous cluster position to make sure
+     * we can get current subtitle after seek, because current subtitle data maybe in the
+     * previous cluster blocks, matroska skip_to_keyframe = 1 make sure block parser will skip
+     * audio and video to real seek position.
+     */
+    int has_subtitle_track = 0;
+    int seek_pos_index = index;
+    for (i = 0; i < matroska->tracks.nb_elem; i++) {
+        if (tracks[i].stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+            has_subtitle_track = 1;
+            break;
+        }
+    }
+    if (has_subtitle_track) {
+        seek_pos_index = index >= 1 ? (index - 1) : index;
+        av_log(matroska->ctx, AV_LOG_INFO, "has subtitle track, seek to previous cluster, seek_pos_index %d\n", seek_pos_index);
+    }
+    matroska_reset_status(matroska, 0, st->index_entries[seek_pos_index].pos);
+#else
     matroska_reset_status(matroska, 0, st->index_entries[index].pos);
+#endif
     if (flags & AVSEEK_FLAG_ANY) {
         st->internal->skip_to_keyframe = 0;
         matroska->skip_to_timecode = timestamp;

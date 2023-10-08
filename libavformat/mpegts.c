@@ -2461,6 +2461,20 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
             dovi->rpu_present_flag  = (buf >> 2) & 0x01;    // 1 bit
             dovi->el_present_flag   = (buf >> 1) & 0x01;    // 1 bit
             dovi->bl_present_flag   =  buf       & 0x01;    // 1 bit
+#ifdef AMFFMPEG
+            if (!dovi->bl_present_flag && desc_end - *pp >= 2) {
+                buf = get16(pp, desc_end);
+                // dependency_pid = buf >> 3; // 13 bits
+            }
+            if (desc_end - *pp >= 1) {  // 8 bits
+                buf = get8(pp, desc_end);
+                dovi->dv_bl_signal_compatibility_id = (buf >> 4) & 0x0f; // 4 bits
+            } else {
+                // 0 stands for None
+                // Dolby Vision V1.2.93 profiles and levels
+                dovi->dv_bl_signal_compatibility_id = 0;
+            }
+#else
             if (desc_end - *pp >= 20) {  // 4 + 4 * 4
                 buf = get8(pp, desc_end);
                 dovi->dv_bl_signal_compatibility_id = (buf >> 4) & 0x0f; // 4 bits
@@ -2469,7 +2483,7 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                 // Dolby Vision V1.2.93 profiles and levels
                 dovi->dv_bl_signal_compatibility_id = 0;
             }
-
+#endif
             ret = av_stream_add_side_data(st, AV_PKT_DATA_DOVI_CONF,
                                           (uint8_t *)dovi, dovi_size);
             if (ret < 0) {

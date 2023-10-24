@@ -3896,9 +3896,29 @@ static int avformat_check_dv_meta_el(AVFormatContext *ic, AVStream *st, const ui
 #define    DCA_SYNCWORD_CORE_LE              0xFE7F0180U
 #define    DCA_SYNCWORD_CORE_14B_BE          0x1FFFE800U
 #define    DCA_SYNCWORD_CORE_14B_LE          0xFF1F00E8U
+#define    AAC_FRAME_HEADER_SIZE             7
+#define    DCA_FRAME_HEADER_SIZE             18
+
+const uint32_t dca_sample_rates[16] = {
+    0, 8000, 16000, 32000, 0, 0, 11025, 22050, 44100, 0, 0,
+    12000, 24000, 48000, 96000, 192000
+};
+
+const uint8_t dca_channels[16] = {
+    1, 2, 2, 2, 2, 3, 3, 4, 4, 5, 6, 6, 6, 7, 8, 8
+};
+
+const uint64_t dca_bit_rates[32] = {
+      32000,   56000,   64000,   96000,  112000, 128000,
+     192000,  224000,  256000,  320000,  384000,
+     448000,  512000,  576000,  640000,  768000,
+     896000, 1024000, 1152000, 1280000, 1344000,
+    1408000, 1411200, 1472000, 1536000, 1920000,
+    2048000, 3072000, 3840000, 1 /* open */, 2 /* variable */, 3 /* lossless */
+};
 
 static void avformat_check_ac3_aac(AVFormatContext *ic, AVStream *st, const uint8_t *buf, int buf_size) {
-    if (!buf || buf_size < 6) {
+    if (!buf || buf_size < AAC_FRAME_HEADER_SIZE) {
         return;
     }
 
@@ -3914,18 +3934,34 @@ static void avformat_check_ac3_aac(AVFormatContext *ic, AVStream *st, const uint
             || dts_sync_word == DCA_SYNCWORD_CORE_LE
             || dts_sync_word == DCA_SYNCWORD_CORE_14B_BE
             || dts_sync_word == DCA_SYNCWORD_CORE_14B_LE) {
+            av_log(ic, AV_LOG_INFO, "found dts audio sync word 0x%08x, change codec type to dts\n", dts_sync_word);
+            if (buf_size >= DCA_FRAME_HEADER_SIZE) {
+                uint8_t audio_mode = ((buf[7] & 0x0f) << 2) | ((buf[8] & 0xc0) >> 6);
+                uint8_t sr_code = (buf[8] >> 2) & 0x0f;
+                uint8_t br_code = ((buf[8] & 0x3) << 3) | ((buf[9] & 0xe0) >> 5);
+                uint8_t lfe_present = (buf[10] >> 1) & 0x03;
+                if (audio_mode < 10 && sr_code < 16 &&  br_code < 32
+                    && dca_sample_rates[sr_code]) {
+                    st->codecpar->sample_rate = dca_sample_rates[sr_code];
+                    st->codecpar->channels = dca_channels[audio_mode] + !!lfe_present;
+                    st->codecpar->bit_rate = dca_bit_rates[br_code];
+                    av_log(ic, AV_LOG_INFO, "update dts audio sample_rate:%d channels:%d bit_rate:%"PRId64" from frame header\n",
+                        st->codecpar->sample_rate, st->codecpar->channels, st->codecpar->bit_rate);
+                }
+            }
             st->codecpar->codec_id = AV_CODEC_ID_DTS;
             st->internal->need_context_update = 1;
-            av_log(ic, AV_LOG_INFO, "found dts audio sync word 0x%08x, change codec type to dts\n", dts_sync_word);
+            update_stream_avctx(ic);
         }
 
         uint16_t ac3_sync_word = (buf[0] << 8) | buf[1];
         if (ac3_sync_word == 0x0B77) {
             unsigned char bitstream_id = (((buf[4] & 0x07) << 5) | ((buf[5] & 0Xf8) >> 3)) & 0x1f;
             if (bitstream_id > 10 && bitstream_id <= 16) {
+                av_log(ic, AV_LOG_INFO, "found ac3 audio sync word 0x%04x, bitstream_id %d, change codec type to eac3\n", ac3_sync_word);
                 st->codecpar->codec_id = AV_CODEC_ID_EAC3;
                 st->internal->need_context_update = 1;
-                av_log(ic, AV_LOG_INFO, "found ac3 audio sync word 0x%04x, bitstream_id %d, change codec type to eac3\n", ac3_sync_word);
+                update_stream_avctx(ic);
             }
         }
     } else if (!av_dict_get(st->metadata, "aac_adts_csd", NULL, 0)) {

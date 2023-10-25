@@ -2205,6 +2205,11 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
             if (st->codecpar->codec_tag == MKTAG('B', 'S', 'S', 'D'))
                 st->internal->request_probe = 50;
         }
+#ifdef AMFFMPEG
+        if (st->codecpar->codec_id == AV_CODEC_ID_NONE && st->codecpar->codec_tag == MKTAG('H', 'D', 'M', 'V')) {
+            mpegts_find_stream_type(st, stream_type, HDMV_types);
+        }
+#endif
         break;
     case 0x52: /* stream identifier descriptor */
         st->stream_identifier = 1 + get8(pp, desc_end);

@@ -3985,7 +3985,8 @@ static int matroska_read_seek(AVFormatContext *s, int stream_index,
     int has_subtitle_track = 0;
     int seek_pos_index = index;
     for (i = 0; i < matroska->tracks.nb_elem; i++) {
-        if (tracks[i].stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+        if (tracks[i].stream && tracks[i].stream->codecpar &&
+            tracks[i].stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
             has_subtitle_track = 1;
             break;
         }

@@ -2802,6 +2802,15 @@ static void fill_all_stream_timings(AVFormatContext *ic)
                 st->duration = av_rescale_q(ic->duration, AV_TIME_BASE_Q,
                                             st->time_base);
         }
+#ifdef AMFFMPEG
+        if (!strcmp(ic->iformat->name, "mpegts") && st->codec->codec_type == AVMEDIA_TYPE_VIDEO && ic->bit_rate > 0) {
+            if (st->internal->avctx_inited && st->internal->avctx->bit_rate <= 0) {
+                st->internal->avctx->bit_rate = ic->bit_rate;
+            } else if (!st->internal->avctx_inited  && st->codecpar->bit_rate <= 0) {
+                st->codecpar->bit_rate = ic->bit_rate;
+            }
+        }
+#endif
     }
 }
 

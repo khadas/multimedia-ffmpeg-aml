@@ -1530,7 +1530,15 @@ static int parse_packet(AVFormatContext *s, AVPacket *pkt,
 
         if (st->parser->key_frame == -1 && st->parser->pict_type ==AV_PICTURE_TYPE_NONE && (pkt->flags&AV_PKT_FLAG_KEY))
             out_pkt->flags |= AV_PKT_FLAG_KEY;
-
+#ifdef AMFFMPEG
+        if (!strcmp(s->iformat->name, "mpegts") &&
+            (out_pkt->flags & AV_PKT_FLAG_KEY) &&
+            out_pkt->pts != AV_NOPTS_VALUE) {
+            ff_reduce_index(s, st->index);
+            av_add_index_entry(st, out_pkt->pos, out_pkt->pts,
+                               0, 0, AVINDEX_KEYFRAME);
+        }
+#endif
         compute_pkt_fields(s, st, st->parser, out_pkt, next_dts, next_pts);
 
         ret = avpriv_packet_list_put(&s->internal->parse_queue,
@@ -1569,6 +1577,10 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
     while (!got_packet && !s->internal->parse_queue) {
         AVStream *st;
 #ifdef AMFFMPEG
+        if (ff_check_interrupt(&s->interrupt_callback)) {
+            av_log(s, AV_LOG_DEBUG, "interrupted\n");
+            return AVERROR_EXIT;
+        }
         if (s->pb && s->pb->media_scan_flag) {
             if (avformat_get_now_us() > (first_timeval + s->max_analyze_duration)) {
                 return -1;
@@ -2310,6 +2322,10 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
     int64_t start_pos;
     int no_change;
     int ret;
+#ifdef AMFFMPEG
+    int64_t pos_max_found = 0, pos_min_found = 0;
+    int64_t search_pos_limit = INT64_MAX;
+#endif
 
     av_log(s, AV_LOG_TRACE, "gen_seek: %d %s\n", stream_index, av_ts2str(target_ts));
 
@@ -2340,6 +2356,12 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
 
     no_change = 0;
     while (pos_min < pos_limit) {
+#ifdef AMFFMPEG
+        if (ff_check_interrupt(&s->interrupt_callback)) {
+            av_log(s, AV_LOG_DEBUG, "interrupted\n");
+            return AVERROR_EXIT;
+        }
+#endif
         av_log(s, AV_LOG_TRACE,
                 "pos_min=0x%"PRIx64" pos_max=0x%"PRIx64" dts_min=%s dts_max=%s\n",
                 pos_min, pos_max, av_ts2str(ts_min), av_ts2str(ts_max));
@@ -2366,7 +2388,11 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
         start_pos = pos;
 
         // May pass pos_limit instead of -1.
+#ifdef AMFFMPEG
+        ts = ff_read_timestamp(s, stream_index, &pos, search_pos_limit, read_timestamp);
+#else
         ts = ff_read_timestamp(s, stream_index, &pos, INT64_MAX, read_timestamp);
+#endif
         if (pos == pos_max)
             no_change++;
         else
@@ -2377,6 +2403,17 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
                 av_ts2str(ts_min), av_ts2str(ts), av_ts2str(ts_max), av_ts2str(target_ts),
                 pos_limit, start_pos, no_change);
         if (ts == AV_NOPTS_VALUE) {
+#ifdef AMFFMPEG
+            if (pos_min_found && (flags & AVSEEK_FLAG_BACKWARD)) {
+                *ts_ret = ts_min;
+                av_log(s, AV_LOG_TRACE, "%s return last pos_min\n", __FUNCTION__);
+                return pos_min;
+            } else if (pos_max_found && (flags ^ AVSEEK_FLAG_BACKWARD)) {
+                *ts_ret = ts_max;
+                av_log(s, AV_LOG_TRACE, "%s return last pos_max\n", __FUNCTION__);
+                return pos_max;
+            }
+#endif
             av_log(s, AV_LOG_ERROR, "read_timestamp() failed in the middle\n");
             return -1;
         }
@@ -2385,16 +2422,23 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
             pos_max   = pos;
             ts_max    = ts;
 #ifdef AMFFMPEG
-            // keyframe found after interpolate position, exit keyframe search in this case.
-            AVStream *st = s->streams[stream_index];
-            if ((st->codecpar->width * st->codecpar->height > 3840 * 2160)
-                && !strcmp(s->iformat->name, "mpegts")
-                && (flags ^ AVSEEK_FLAG_BACKWARD)) {
-                break;
+            pos_max_found = 1;
+            if (!strcmp(s->iformat->name, "mpegts")) {
+                search_pos_limit = pos_limit;
+                // keyframe found after interpolate position, exit keyframe search in this case.
+                AVStream *st = s->streams[stream_index];
+                if ((st->codecpar->width * st->codecpar->height > 3840 * 2160)
+                    && (flags ^ AVSEEK_FLAG_BACKWARD)) {
+                    break;
+                }
             }
+
 #endif
         }
         if (target_ts >= ts) {
+#ifdef AMFFMPEG
+            pos_min_found = 1;
+#endif
             pos_min = pos;
             ts_min  = ts;
         }
@@ -2933,6 +2977,16 @@ static void estimate_timings_from_pts(AVFormatContext *ic, int64_t old_offset)
                 break;
             read_size += pkt->size;
             st         = ic->streams[pkt->stream_index];
+#ifdef AMFFMPEG
+            if (!strcmp(ic->iformat->name, "mpegts") &&
+                (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO || st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) &&
+                (pkt->pts != AV_NOPTS_VALUE ||
+                pkt->dts != AV_NOPTS_VALUE)) {
+                ff_reduce_index(ic, st->index);
+                av_add_index_entry(st, pkt->pos, ((pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts),
+                                   0, 0, AVINDEX_KEYFRAME);
+            }
+#endif
             if (pkt->pts != AV_NOPTS_VALUE &&
 #ifdef AMFFMPEG
                 pkt->pts <= AV_BIGEST_PTS_VALUE &&

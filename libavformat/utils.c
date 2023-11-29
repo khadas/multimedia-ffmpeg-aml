@@ -2824,12 +2824,7 @@ static void update_stream_timings(AVFormatContext *ic)
             }
         }
     }
-#ifdef AMFFMPEG
-    if (duration != INT64_MIN && duration > 0 && (ic->duration == AV_NOPTS_VALUE
-        || !strcmp(ic->iformat->name, "mov,mp4,m4a,3gp,3g2,mj2"))) {
-#else
     if (duration != INT64_MIN && duration > 0 && ic->duration == AV_NOPTS_VALUE) {
-#endif
         ic->duration = duration;
     }
     if (ic->pb && (filesize = avio_size(ic->pb)) > 0 && ic->duration > 0) {
@@ -3190,26 +3185,6 @@ static void estimate_timings(AVFormatContext *ic, int64_t old_offset)
         file_size = avio_size(ic->pb);
         file_size = FFMAX(0, file_size);
     }
-#ifdef AMFFMPEG
-    if (!strcmp(ic->iformat->name, "mov,mp4,m4a,3gp,3g2,mj2") && file_size) {
-        int i;
-        AVStream av_unused *st;
-        for (i = 0; i < ic->nb_streams; i++) {
-            st = ic->streams[i];
-            if (!(st->codec->codec_type == AVMEDIA_TYPE_VIDEO || st->codec->codec_type == AVMEDIA_TYPE_AUDIO))
-                continue;
-            int j;
-            AVIndexEntry *e;
-            for (j = st->nb_index_entries - 1;j > 0; j--) {
-                e = &st->index_entries[j];
-                if (e->pos < file_size) {
-                    st->duration = e->timestamp;
-                    break;
-                }
-            }
-        }
-    }
-#endif
     if ((!strcmp(ic->iformat->name, "mpeg") ||
          !strcmp(ic->iformat->name, "mpegts")) &&
         file_size && (ic->pb->seekable & AVIO_SEEKABLE_NORMAL)) {

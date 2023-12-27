@@ -255,6 +255,9 @@ static inline int parse_nal_units(AVCodecParserContext *s,
     int q264 = buf_size >=4 && !memcmp("Q264", buf, 4);
     int field_poc[2];
     int ret;
+#ifdef AMFFMPEG
+    int has_sps = 0, has_pps = 0;
+#endif
 
     /* set some sane default values */
     s->pict_type         = AV_PICTURE_TYPE_I;
@@ -322,6 +325,17 @@ static inline int parse_nal_units(AVCodecParserContext *s,
         nal.type    = get_bits(&nal.gb, 5);
 
         switch (nal.type) {
+#ifdef AMFFMPEG
+        case H264_NAL_SPS:
+            has_sps = 1;
+            ff_h264_decode_seq_parameter_set(&nal.gb, avctx, &p->ps, 0);
+            break;
+        case H264_NAL_PPS:
+            has_pps = 1;
+            ff_h264_decode_picture_parameter_set(&nal.gb, avctx, &p->ps,
+                                                 nal.size_bits);
+            break;
+#else
         case H264_NAL_SPS:
             ff_h264_decode_seq_parameter_set(&nal.gb, avctx, &p->ps, 0);
             break;
@@ -329,6 +343,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
             ff_h264_decode_picture_parameter_set(&nal.gb, avctx, &p->ps,
                                                  nal.size_bits);
             break;
+#endif
         case H264_NAL_SEI:
             ff_h264_sei_decode(&p->sei, &nal.gb, &p->ps, avctx);
             break;
@@ -389,7 +404,11 @@ static inline int parse_nal_units(AVCodecParserContext *s,
             // heuristic to detect non marked keyframes
             if (p->ps.sps->ref_frame_count <= 1 && p->ps.pps->ref_count[0] <= 1 && s->pict_type == AV_PICTURE_TYPE_I)
                 s->key_frame = 1;
-
+#ifdef AMFFMPEG
+            if (!s->key_frame && has_sps && has_pps && s->pict_type == AV_PICTURE_TYPE_I) {
+                s->key_frame = 1;
+            }
+#endif
             p->poc.frame_num = get_bits(&nal.gb, sps->log2_max_frame_num);
 
             s->coded_width  = 16 * sps->mb_width;

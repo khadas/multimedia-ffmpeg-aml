@@ -1954,6 +1954,63 @@ static int update_ca_descriptor(MpegTSContext *ts, uint32_t ca_system_id, uint32
     av_log(NULL, AV_LOG_INFO, "[%s:%d]ca_system_id:0x%x, ecmpid=0x%x, private_len=%d\n", __func__, __LINE__, ca_system_id, ecm_pid, private_len);
     return ts->ca_descriptor_size;
 }
+
+void get_dolby_vision_playback_mode(AVStream *st, int stream_type) {
+    switch (stream_type) {
+    case STREAM_TYPE_VIDEO_HEVC:
+        if (st->codec->dolby_vision_profile == 4 || st->codec->dolby_vision_profile == 7
+            || st->codec->dolby_vision_profile == 8)
+            st->codec->has_dolby_vision_config_box = 1;
+        else
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+        break;
+    case STREAM_TYPE_PRIVATE_DATA:
+        if (st->codec->dolby_vision_profile == 5)
+            st->codec->has_dolby_vision_config_box = 1;
+        else
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+        break;
+    case STREAM_TYPE_VIDEO_H264:
+        if (st->codec->dolby_vision_profile == 9)
+            st->codec->has_dolby_vision_config_box = 1;
+        else
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+        break;
+    default:
+        /* As of April 2022, ISO/IEC 13818 has yet to define a stream_type for AV1, */
+        /* so Profile 10 Dolby Vision playback is not supported with MPEG-2 TS bitstreams. */
+        /* */
+        /* Additionally, ISO/IEC 31818 has yet to define a stream_type */
+        /* for VVC codec. This pseudo-code section handles: */
+        /* - codecs which Dolby Vision doesn’t support */
+        /* - ‘graceful’ playback of base layer of future Dolby Vision profiles */
+        /* that have compatible base layer (see line #’s 52 – 72 */
+        /* for handling non-compatible stream_types, using 0x06) */
+        /*Playback bitstream per stream_type*/
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+        break;
+    }
+}
+
+void get_dolby_vision_playback_mode_old(AVStream *st) {
+    // profile == (0, 1, 9) --> AVC; profile = (2,3,4,5,6,7,8) --> HEVC; profile == (10) --> AV01;
+    st->codec->has_dolby_vision_config_box = 1;
+    if (st->codec->dolby_vision_profile > 10) {
+        av_log(NULL, AV_LOG_ERROR, "profile error:%x\n", st->codec->dolby_vision_profile);
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+    }
+    if (st->codec->dolby_vision_bl_compat_id != 0 &&
+        st->codec->dolby_vision_bl_compat_id != 1 &&
+        st->codec->dolby_vision_bl_compat_id != 2 &&
+        st->codec->dolby_vision_bl_compat_id != 4 &&
+        st->codec->dolby_vision_bl_compat_id != 6
+        ) {
+        av_log(NULL, AV_LOG_ERROR, "bl_compatibility_id error:%x\n", st->codec->dolby_vision_bl_compat_id);
+        //dv_bl_signal_compatibility_id error, can't be played .
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+    }
+
+}
 #endif
 
 int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type,
@@ -2505,12 +2562,6 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                    dovi->bl_present_flag,
                    dovi->dv_bl_signal_compatibility_id);
 #ifdef AMFFMPEG
-            st->codec->has_dolby_vision_config_box = 1;
-            // profile == (0, 1, 9) --> AVC; profile = (2,3,4,5,6,7,8) --> HEVC; profile == (10) --> AV01;
-            if (dovi->dv_profile > 10) {
-                av_log(fc, AV_LOG_ERROR, "profile error:%x\n", dovi->dv_profile);
-                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
-            }
             st->codec->dolby_vision_profile = dovi->dv_profile;
             st->codec->dolby_vision_level = dovi->dv_level;
             if (dovi->rpu_present_flag && dovi->el_present_flag && !dovi->bl_present_flag) {
@@ -2519,16 +2570,8 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                 st->codec->dolby_vision_rpu_assoc = 0;
             }
             st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
-            if (dovi->dv_bl_signal_compatibility_id != 0 &&
-                dovi->dv_bl_signal_compatibility_id != 1 &&
-                dovi->dv_bl_signal_compatibility_id != 2 &&
-                dovi->dv_bl_signal_compatibility_id != 4 &&
-                dovi->dv_bl_signal_compatibility_id != 6
-                ) {
-                av_log(fc, AV_LOG_ERROR, "bl_compatibility_id error:%x\n", dovi->dv_bl_signal_compatibility_id);
-                //dv_bl_signal_compatibility_id error, can't be played .
-                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
-            }
+            //get_dolby_vision_playback_mode_old(st);
+            get_dolby_vision_playback_mode(st, stream_type);
 #endif
         }
         break;

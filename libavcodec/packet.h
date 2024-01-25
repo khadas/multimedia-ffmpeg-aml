@@ -445,7 +445,9 @@ enum AVSideDataParamChangeFlags {
 #define    AV_DV_BOX_TYPE_DVVC (1)
 #define    AV_DV_BOX_TYPE_DVCC (2)
 #define    AV_DV_BOX_TYPE_DVWC (3)
-
+#ifdef AMFFMPEG
+#define    AV_DV_BOX_TYPE_DVXC (4)
+#endif
 /**
  * Allocate an AVPacket and set its fields to default values.  The resulting
  * struct must be freed using av_packet_free().

@@ -794,6 +794,15 @@ unsigned int avio_rb32(AVIOContext *s)
     val |= avio_rb16(s);
     return val;
 }
+#ifdef AMFFMPEG
+unsigned int avio_rb128(AVIOContext *s)
+{
+    unsigned int val;
+    val = avio_rb64(s) << 64;
+    val |= avio_rb64(s);
+    return val;
+}
+#endif
 
 int ff_get_line(AVIOContext *s, char *buf, int maxlen)
 {

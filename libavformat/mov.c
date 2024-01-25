@@ -60,6 +60,7 @@
 #include "id3v1.h"
 #ifdef AMFFMPEG
 #include "id3v2.h"
+#include "libavcodec/av1.h"
 #endif
 #include "mov_chan.h"
 #include "replaygain.h"
@@ -3582,7 +3583,6 @@ static int mov_read_sbgp(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         return 0; /* only support 'rap ' grouping */
     if (version == 1)
         avio_rb32(pb); /* grouping_type_parameter */
-
     entries = avio_rb32(pb);
     if (!entries)
         return 0;
@@ -7378,6 +7378,264 @@ static int mov_read_dmlp(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 }
 
 #ifdef AMFFMPEG
+static void mov_get_dolby_vision_playback_mode(MOVContext *c, AVStream *st) {
+    if (st->codecpar->codec_tag == MKTAG('h','e','v','1') || st->codecpar->codec_tag == MKTAG('h','v','c','1')) {
+        if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVCC
+            || st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVVC
+            || st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVWC) {
+            if (st->codec->dolby_vision_profile == 4 || st->codec->dolby_vision_profile == 7) {
+                /* Note that Profile 7 is intended for use with UltraHD */
+                /* Blu-ray disc bitstreams. */
+                /*Playback Dolby Vision*/
+            } else if (st->codec->dolby_vision_profile == 2 || st->codec->dolby_vision_profile == 6) {
+                /* Dolby Vision Profiles /Levels v1.3 specification, 25Oct2018, Annex I */
+                /* These profiles were effectively deprecated in Dolby Vision Profiles */
+                /* and Levels, v1.2.9, 1 June 2017. */
+                /* Sink SDK have never included Dolby Vision tests for these. */
+                /*Playback HEVC bitstream using base-layer*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+            } else if (st->codec->dolby_vision_profile == 8) {
+                /* ISOBMFF v2.0 or later spec – designed to support Dolby Vision */
+                /* Profiles ≥ 8 */
+                /*Playback Dolby Vision*/
+            } else {
+                /* VUI provides indication as to whether base layer is HDR10, */
+                /* SDR or HLG. */
+                /* Without VUI, a device will still */
+                /* make reasonable effort to present a picture. */
+                /*Playback HEVC bitstream using base-layer, and, if present, base layer’s VUI.*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+            }
+        } else {
+            /* Dolby Vision Configuration Box NOT present */
+            /*Playback HEVC bitstream other than Dolby Vision*/
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+        }
+    } else if (st->codecpar->codec_tag == MKTAG('d','v','h','e') || st->codecpar->codec_tag == MKTAG('d','v','h','1')) {
+        if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVCC) {
+            /* Original ISOBMFF, v1.3 spec – designed to support Dolby Vision Profiles ≤ 7 */
+            if (st->codec->dolby_vision_profile == 5) {
+                /*Playback Dolby Vision*/
+            } else if (st->codec->dolby_vision_profile == 1 || st->codec->dolby_vision_profile == 3) {
+                /* These profiles were effectively deprecated in Dolby Vision Profiles */
+                /* and Levels, v1.2.9, 1 June 2017. See Annex I. */
+                /* Sink SDK have never included Dolby Vision tests for these. */
+                /*Reject playback*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+            } else {
+                /* ISOBMF v2.0 or later spec – designed to support Dolby Vision */
+                /* Profiles ≥ 8 */
+                /*Reject playback*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+            }
+        } else {
+             /* Malformed stream given combination of sample entry box, */
+             /* Configuration Box, and profile */
+             /*Reject playback*/
+             st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+        }
+    } else if (st->codecpar->codec_tag == MKTAG('a','v','c','1') || st->codecpar->codec_tag == MKTAG('a','v','c','2')
+        || st->codecpar->codec_tag == MKTAG('a','v','c','3') || st->codecpar->codec_tag == MKTAG('a','v','c','4')) {
+        if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVCC
+            || st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVVC
+            || st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVWC) {
+            /* Original ISOBMFF v1.3 spec – designed to support Dolby Vision Profiles ≤ 7 */
+            if (st->codec->dolby_vision_profile == 0) {
+                /* Dolby Vision Profiles /Levels v1.3 specification, 25Oct2018, Annex I */
+                /* This profile was effectively deprecated in Dolby Vision Profiles */
+                /* and Levels, v1.2.9, 1 June 2017. See Annex I. */
+                /* Sink SDK have never included Dolby Vision tests for this. */
+                /*Playback AVC bitstream using base-layer*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+            } else if (st->codec->dolby_vision_profile == 9) {
+                /* ISOBMFF, v2.0 or later spec – designed to support Dolby Vision */
+                /* Profiles ≥ 8 */
+                /*Playback Dolby Vision*/
+            } else {
+                /* VUI provides indication as to whether base layer is */
+                /* SDR or HLG. */
+                /*Playback AVC bitstream using base-layer, and, if present, base layer’s VUI.*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+            }
+        } else  {
+            /*Playback AVC bitstream other than Dolby Vision*/
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+        }
+    } else if (st->codecpar->codec_tag == MKTAG('d','v','a','v') || st->codecpar->codec_tag == MKTAG('d','v','a','1')) {
+        /* Note that AVC configuration box is absent, and Dolby Vision device relies on */
+        /* Dolby Vision Configuration Box. */
+        /* Original ISOBMFF, v1.3 spec – designed to support Dolby Vision Profiles ≤ 7 */
+        /* As base layer is not SDR or HDR compatible, current Dolby Vision device */
+        /* doesn’t know how to play this type of deprecated bitstream. */
+        if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVCC) {
+            if (st->codec->dolby_vision_profile == 1) {
+                /*Reject playback*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+            }
+        } else if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVVC) {
+            /* ISOBMF v2.0 or later spec – designed to support Dolby Vision */
+            /* Profiles ≥ 8, and ≤10 */
+            /* No AVC non-compatible bitstreams were defined with ‘dvvC’ */
+            /*Reject playback*/
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+        } else if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVWC) {
+            /* ISOBMF v2.0 or later spec – designed to support Dolby Vision Profiles ≥ 10 */
+            /* AVC non-compatible bitstreams with ‘dvwC’ have yet to be defined */
+            /*Reject playback*/
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+        } else {
+            /* Malformed stream given combination of sample entry box, */
+            /* Configuration Box, and profile */
+            /*Reject playback*/
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+        }
+    } else if (st->codecpar->codec_tag == MKTAG('a','v','0','1') || st->codecpar->codec_tag == MKTAG('a','v','1','c')) {
+        /* AOM has defined a method using ISOBMFF for AV1, so Profile 10 and */
+        /* potential future AV1 profiles are supported with ISOBMFF bitstreams */
+        if (c->metadata_type == AV1_METADATA_TYPE_ITUT_T35
+        && c->metadata_specific_parameters == 0xB5003B) {
+            /* 0xB5003B distinguishes Dolby from other metadata providers */
+            if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVVC
+                || st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVWC) {
+                /* ISOBMF v2.0 or later spec – designed to support Dolby Vision */
+                /* Profiles ≥ 8 */
+                if (st->codec->dolby_vision_profile == 10) {
+                    /* Dolby Vision Profiles /Levels v2.0 specification, or later */
+                    /*Playback Dolby Vision*/
+                }
+                else { /* Unrecognized Dolby Vision AV1 profile, i.e. some future */
+                    /* compatible Dolby Vision AV1 profile */
+                    /*Playback AV1 bitstream using base-layer, and base layer’s AV1 parameters.*/
+                    st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+                }
+            }
+            else { /* Malformed Dolby Vision stream with wrong type of */
+                /* Configuration Box, e.g. ‘dvcC’ */
+                /* Signaled as Dolby Vision compatible SDR or HDR bitstream */
+                /* Base-layer is standards’ based and playable */
+                /*Playback AV1 bitstream using base-layer, and base layer’s AV1 parameters*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+            }
+        }
+        else {/* Vision AV1 bitstream other than Dolby Vision
+            Playback Vision AV1 bitstream other than Dolby Vision, and, if present,
+            base layer’s AV1 parameters */
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+        }
+    } else if (st->codecpar->codec_tag == MKTAG('d','a','v','1') || st->codecpar->codec_tag == MKTAG('a','v','1','c')) {
+        if (c->metadata_type == AV1_METADATA_TYPE_ITUT_T35
+        && c->metadata_specific_parameters == 0xB5003B) {
+            if (st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVVC
+                || st->codec->has_dolby_vision_config_box == AV_DV_BOX_TYPE_DVWC) {
+                /* ISOBMF v2.0 or later spec – designed to support Dolby Vision */
+                /* Profiles ≥ 8 */
+                if (st->codec->dolby_vision_profile == 10) {
+                    /* Dolby Vision Profiles /Levels v2.0 specification, or later */
+                    /*Playback Dolby Vision*/
+                }
+                else {
+                    /* Unrecognized Dolby Vision AV1 profile, potential future */
+                    /* non-compatible AV1 profile */
+                    /*Reject playback*/
+                    st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+                }
+            }
+            else {
+                /* Malformed stream with wrong type of Configuration Box, e.g. ‘dvcC’ */
+                /*Reject playback*/
+                st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+            }
+        }
+        else {
+            /* Malformed stream with Dolby Vision non-compatible AV1 Sample */
+            /* Entry combined with T35 terminal provider code other than Dolby Vision */
+            /*Reject playback*/
+            st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+        }
+/*  TODO:
+    } else if (st->codecpar->codec_tag == MKTAG('v','v','c','N') || st->codecpar->codec_tag == MKTAG('v','v','c','1')
+        || st->codecpar->codec_tag == MKTAG('v','v','i','1') || st->codecpar->codec_tag == MKTAG('v','v','s','1')) {
+        //Parse VVC configuration box (‘vvcC’)
+        //Playback Vision VVC bitstream other than Dolby Vision
+    } else if (Other SampleEntry found, registered with MP4 Registration Authority and supported by TV) {
+        Handle per specification associated with 4CC code at mp4ra.org
+*/
+    } else {
+        /*Reject playback*/
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+    }
+}
+
+static void mov_get_dolby_vision_playback_mode_old(AVStream *st) {
+    /*
+    Expected results are:
+    • If the test vector (MP4) carries an undefined/unknown Base Layer Signal Compatibility ID (dv_bl_signal_
+        compatibility_id), the device under test rejects the playback.
+    • If the test vector (MP4) is of an undefined/unknown Dolby Vision profile, but its Base Layer Signal
+        Compatibility ID (dv_bl_signal_compatibility_id) is valid, the device under test plays the content
+        properly and TV displays in Dolby Vision picture mode.
+        Note: Level 11 metadata changes when the embedded label on the left side of the test pattern
+        changes.
+    • If the Dolby Vision configuration box contains unknown elements (reserved fields with non-zero value),
+        the device under test ignores the unknown elements properly and play the MP4 test vector properly and
+        TV displays in Dolby Vision picture mode.
+    */
+
+    if (st->codec->dolby_vision_profile > 10) {
+        av_log(NULL,AV_LOG_WARNING,"mov, unknown dv profile %d",st->codec->dolby_vision_profile);
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
+    }
+
+    if (st->codec->dolby_vision_bl_compat_id != 0 &&
+        st->codec->dolby_vision_bl_compat_id != 1 &&
+        st->codec->dolby_vision_bl_compat_id != 2 &&
+        st->codec->dolby_vision_bl_compat_id != 4 &&
+        st->codec->dolby_vision_bl_compat_id != 6
+        ) {
+        /*
+         *0  -- None, Dolby Vision proprietary 10-bit
+         *1  -- CTA HDR10, as specified by EBU TR 038: HDR10, specifies the use of the perceptual quantization
+                electro-optical transfer function (EOTF) (SMPTE ST 2084) with 10-bit quantization, an ITU-R BT.2020
+                color space, Mastering Display Color Volume as specified in SMPTE ST 2086, and optional static
+                metadata parameters maximum frame-average light level/maximum content light level (MaxFALL/
+                MaxCLL). It uses a limited-range video signal. It is referred to as PQ10 when the static metadata are
+                not used, as might be the case for a live application. Additionally, for Dolby Vision systems, P3 color
+                gamut information is sent using the BT.2020 container. Also, it uses YCbCr 4:2:0 sampling.
+                We strongly recommend that bitstreams with a cross-compatibility ID of 1 include ST 2086 metadata
+                in an MPEG SEI message to facilitate broader applications of the bitstreams (for example,
+                transmission over ATSC 3.0).
+                ITU-R BT.2100 provides an additional specification of the EOTF, color subsampling, and signal range.
+         *2  -- SDR: BT.1886, ITU-R BT.709, YCbCr 4:2:0
+         *3  -- Reserved
+         *4  -- ITU-R BT.2100 provides an additional specification of the transfer characteristic, color subsampling,
+                    and signal range.
+                For certain broadcast and mobile systems, a transfer characteristic VUI value of 18 may provide
+                    base-layer compatibility that works best with certain classes of devices. This uses a BT.2100
+                    gamut in ITU-R BT.2020, NCL Y’CbCr 4:2:0, and assumes non-SDR backward-compatible HLG
+                    signaling, as defined in H.265, ITU-R BT.2100, ATSC3, and ARIB STD-B67. Default assumptions:
+                    peak luminance of 1,000 cd/m2
+                    , and gamma as specified in BT.2100. The recommended chroma
+                    sample location type VUI is 2 (top-left).
+                For other broadcasts systems, a transfer characteristic VUI value of 14, as per ETSI TS 101 154,
+                    v2.5.1 (2019-01) and subsequent versions (and optionally 1, 6, or 15) may provide the best
+                    base layer SDR backward-compatible HLG signaling when used with the alternative_transfer_
+                    characteristic SEI message, at every random access point, with the preferred_transfer_
+                    function set to 18, as per ETSI TS 101 154, v2.5.1. Note that ITU-R BT.2390 defines a bridge point
+                    for translation of PQ and HLG at a luminance of 1,000 cd/m2
+                    . The recommended chroma sample
+                    location type VUI is 0 (center-left).
+         *5  -- Reserved
+         *6  -- Ultra HD Blu-ray Disc HDR (per Blu-ray Disc Association standard)
+         *7  -- Reserved
+         *15 -- Reserved
+         */
+        av_log(NULL, AV_LOG_ERROR, "[%s][%d] profile:%d,level:%d bl_compatibility_id:%d\n",__FUNCTION__,__LINE__,  st->codec->dolby_vision_profile,  st->codec->dolby_vision_level,  st->codec->dolby_vision_bl_compat_id);
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+    }
+}
+#endif
+
+#ifdef AMFFMPEG
 static int mov_read_dvcC_dvvC_dvwC(MOVContext *c, AVIOContext *pb, MOVAtom atom, int dv_box_type)
 #else
 static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
@@ -7441,10 +7699,6 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         );
 #ifdef AMFFMPEG
     st->codec->has_dolby_vision_config_box = dv_box_type;
-    if (dovi->dv_profile > 10) {
-        av_log(NULL,AV_LOG_WARNING,"mov, unknown dv profile %d",dovi->dv_profile);
-        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
-    }
     st->codec->dolby_vision_profile = dovi->dv_profile;
     st->codec->dolby_vision_level = dovi->dv_level;
 
@@ -7453,69 +7707,10 @@ static int mov_read_dvcc_dvvc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     } else {
         st->codec->dolby_vision_rpu_assoc = 0;
     }
-
     st->codec->dolby_vision_bl_compat_id = dovi->dv_bl_signal_compatibility_id;
 
-    /*
-    Expected results are:
-    • If the test vector (MP4) carries an undefined/unknown Base Layer Signal Compatibility ID (dv_bl_signal_
-        compatibility_id), the device under test rejects the playback.
-    • If the test vector (MP4) is of an undefined/unknown Dolby Vision profile, but its Base Layer Signal
-        Compatibility ID (dv_bl_signal_compatibility_id) is valid, the device under test plays the content
-        properly and TV displays in Dolby Vision picture mode.
-        Note: Level 11 metadata changes when the embedded label on the left side of the test pattern
-        changes.
-    • If the Dolby Vision configuration box contains unknown elements (reserved fields with non-zero value),
-        the device under test ignores the unknown elements properly and play the MP4 test vector properly and
-        TV displays in Dolby Vision picture mode.
-    */
-    if (st->codec->dolby_vision_bl_compat_id != 0 &&
-        st->codec->dolby_vision_bl_compat_id != 1 &&
-        st->codec->dolby_vision_bl_compat_id != 2 &&
-        st->codec->dolby_vision_bl_compat_id != 4 &&
-        st->codec->dolby_vision_bl_compat_id != 6
-        ) {
-        /*
-         *0  -- None, Dolby Vision proprietary 10-bit
-         *1  -- CTA HDR10, as specified by EBU TR 038: HDR10, specifies the use of the perceptual quantization
-                electro-optical transfer function (EOTF) (SMPTE ST 2084) with 10-bit quantization, an ITU-R BT.2020
-                color space, Mastering Display Color Volume as specified in SMPTE ST 2086, and optional static
-                metadata parameters maximum frame-average light level/maximum content light level (MaxFALL/
-                MaxCLL). It uses a limited-range video signal. It is referred to as PQ10 when the static metadata are
-                not used, as might be the case for a live application. Additionally, for Dolby Vision systems, P3 color
-                gamut information is sent using the BT.2020 container. Also, it uses YCbCr 4:2:0 sampling.
-                We strongly recommend that bitstreams with a cross-compatibility ID of 1 include ST 2086 metadata
-                in an MPEG SEI message to facilitate broader applications of the bitstreams (for example,
-                transmission over ATSC 3.0).
-                ITU-R BT.2100 provides an additional specification of the EOTF, color subsampling, and signal range.
-         *2  -- SDR: BT.1886, ITU-R BT.709, YCbCr 4:2:0
-         *3  -- Reserved
-         *4  -- ITU-R BT.2100 provides an additional specification of the transfer characteristic, color subsampling,
-                    and signal range.
-                For certain broadcast and mobile systems, a transfer characteristic VUI value of 18 may provide
-                    base-layer compatibility that works best with certain classes of devices. This uses a BT.2100
-                    gamut in ITU-R BT.2020, NCL Y’CbCr 4:2:0, and assumes non-SDR backward-compatible HLG
-                    signaling, as defined in H.265, ITU-R BT.2100, ATSC3, and ARIB STD-B67. Default assumptions:
-                    peak luminance of 1,000 cd/m2
-                    , and gamma as specified in BT.2100. The recommended chroma
-                    sample location type VUI is 2 (top-left).
-                For other broadcasts systems, a transfer characteristic VUI value of 14, as per ETSI TS 101 154,
-                    v2.5.1 (2019-01) and subsequent versions (and optionally 1, 6, or 15) may provide the best
-                    baselayer SDR backward-compatible HLG signaling when used with the alternative_transfer_
-                    characteristic SEI message, at every random access point, with the preferred_transfer_
-                    function set to 18, as per ETSI TS 101 154, v2.5.1. Note that ITU-R BT.2390 defines a bridge point
-                    for translation of PQ and HLG at a luminance of 1,000 cd/m2
-                    . The recommended chroma sample
-                    location type VUI is 0 (center-left).
-         *5  -- Reserved
-         *6  -- Ultra HD Blu-ray Disc HDR (per Blu-ray Disc Association standard)
-         *7  -- Reserved
-         *15 -- Reserved
-         */
-        av_log(c, AV_LOG_ERROR, "[%s][%d] profile:%d,level:%d bl_compatibility_id:%d\n",__FUNCTION__,__LINE__,  st->codec->dolby_vision_profile,  st->codec->dolby_vision_level,  st->codec->dolby_vision_bl_compat_id);
-        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
-        return 0;
-    }
+    //mov_get_dolby_vision_playback_mode_old(st);
+    return 0;
 #endif
     return 0;
 }
@@ -7531,6 +7726,24 @@ static int mov_read_dvvC(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
 static int mov_read_dvcC(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
     return mov_read_dvcC_dvvC_dvwC(c, pb, atom, AV_DV_BOX_TYPE_DVCC);
 }
+
+static int mov_read_dvxC(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
+    return mov_read_dvcC_dvvC_dvwC(c, pb, atom, AV_DV_BOX_TYPE_DVXC);
+}
+
+static int mov_read_sgpd(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
+    uint32_t grouping_type;
+    avio_rb128(pb);
+    grouping_type = avio_rb32(pb);
+    if (grouping_type != 0x6176314D)  //av1M
+        return 0;
+    c->metadata_type = avio_r8(pb);
+    c->metadata_specific_parameters = avio_rb24(pb);
+    av_log(NULL, AV_LOG_DEBUG, "[%s:%d] metadata_type:%d, metadata_specific_parameters:0x%x\n",
+        __FUNCTION__, __LINE__, c->metadata_type, c->metadata_specific_parameters);
+    return 0;
+}
+
 static int mov_read_dac4(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
     int ret;
     AVStream *st;
@@ -7660,6 +7873,8 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('d','v','c','C'), mov_read_dvcC },
 { MKTAG('d','v','v','C'), mov_read_dvvC },
 { MKTAG('d','c','a','3'), mov_read_dca3 },
+{ MKTAG('d','v','x','C'), mov_read_dvxC },
+{ MKTAG('s','g','p','d'), mov_read_sgpd },
 #else
 { MKTAG('d','v','c','C'), mov_read_dvcc_dvvc },
 { MKTAG('d','v','v','C'), mov_read_dvcc_dvvc },
@@ -8566,6 +8781,11 @@ static int mov_read_header(AVFormatContext *s)
     for (i = 0; i < mov->frag_index.nb_items; i++)
         if (mov->frag_index.item[i].moof_offset <= mov->fragment.moof_offset)
             mov->frag_index.item[i].headers_read = 1;
+
+#ifdef AMFFMPEG
+    AVStream *st = mov->fc->streams[mov->fc->nb_streams-1];
+    mov_get_dolby_vision_playback_mode(mov, st);
+#endif
 
     return 0;
 fail:

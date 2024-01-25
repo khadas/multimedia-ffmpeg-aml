@@ -312,6 +312,8 @@ typedef struct MOVContext {
     int found_audio_presentation;
     int pts_only;
     int have_ctts;
+    int metadata_type;
+    int metadata_specific_parameters;
 #endif
     int keyframe_count;
 } MOVContext;

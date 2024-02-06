@@ -240,6 +240,9 @@ static int parse_nal_units(AVCodecParserContext *s, const uint8_t *buf,
         case HEVC_NAL_SEI_PREFIX:
         case HEVC_NAL_SEI_SUFFIX:
             ff_hevc_decode_nal_sei(gb, avctx, sei, ps, nal->type);
+            if (sei->isdolbyvison) {
+                avctx->has_dolby_vision_config_box = 1;
+            }
             break;
 #ifdef AMFFMPEG
         case HEVC_NAL_SEI_DV_META:

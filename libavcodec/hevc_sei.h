@@ -120,6 +120,7 @@ typedef struct HEVCSEI {
     int active_seq_parameter_set_id;
     HEVCSEIAlternativeTransfer alternative_transfer;
     HEVCSEITimeCode timecode;
+    int isdolbyvison;
 } HEVCSEI;
 
 struct HEVCParamSets;

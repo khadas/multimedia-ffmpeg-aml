@@ -284,14 +284,21 @@ static int decode_nal_sei_user_data_registered_itu_t_t35(HEVCSEI *s, GetBitConte
     }
     case 0x31: { // atsc_provider_code
         uint32_t user_identifier;
+        uint32_t user_type_code;
 
         if (size < 4)
             return AVERROR_INVALIDDATA;
         size -= 4;
 
         user_identifier = get_bits_long(gb, 32);
+        user_type_code = show_bits(gb, 8);
+
         switch (user_identifier) {
         case MKBETAG('G', 'A', '9', '4'):
+            if (user_type_code == 0x09) {
+                //dolby vision
+                s->isdolbyvison = 1;
+            }
             return decode_registered_user_data_closed_caption(&s->a53_caption, gb, size);
         default:
             av_log(logctx, AV_LOG_VERBOSE,

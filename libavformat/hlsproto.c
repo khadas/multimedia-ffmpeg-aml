@@ -486,7 +486,9 @@ start:
         else
             cur_no = s->cur_seq_no;
 
+#ifndef AMFFMPEG
         cur_no = s->cur_seq_no;
+#endif
         //if (av_opt_set_int(s, "cur_seq_no", cur_no, 0) < 0)
         //    av_log(s, AV_LOG_WARNING, "set seg_no error!\n");
 
@@ -500,10 +502,20 @@ start:
             //if (av_opt_set_int(s, "cur_seq_size", seg_size, 0) < 0)
             //    av_log(s, AV_LOG_WARNING, "set seg_size error!\n");
         }
-        if (s->is_encrypted)
+#ifdef AMFFMPEG
+        if (s->is_encrypted && (cur_no < s->n_segments && s->n_segments > 0))
         {
             // memcpy(s->cur_iv , s->segments[cur_no]->seg_iv, 33);
             // memcpy(s->cur_kurl , s->segments[cur_no]->seg_kurl, strlen(s->segments[cur_no]->seg_kurl)+1);
+            if (s->segments[cur_no]->seg_iv[0] == '\0')
+            {
+                sprintf(s->segments[cur_no]->seg_iv, "%032x", s->cur_seq_no);
+                av_log(s, AV_LOG_INFO,  "get cur_no=%lld,s->start_seq_no=%d, cur_seq_no=%d. iv=%s\n", cur_no, s->start_seq_no, s->cur_seq_no,s->segments[cur_no]->seg_iv);
+            }
+#else
+        if (s->is_encrypted)
+        {
+#endif
             if (av_opt_set(s, "cur_iv", s->segments[cur_no]->seg_iv, 0) < 0)
             {
               av_log(s, AV_LOG_WARNING, "set cur_iv error\n");

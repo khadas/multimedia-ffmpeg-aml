@@ -7561,9 +7561,14 @@ static void mov_get_dolby_vision_playback_mode(MOVContext *c, AVStream *st) {
     } else if (Other SampleEntry found, registered with MP4 Registration Authority and supported by TV) {
         Handle per specification associated with 4CC code at mp4ra.org
 */
-    } else {
-        /*Reject playback*/
+    } else if (st->codecpar->codec_tag == MKTAG('d','a','v','c')) {
+        /*Wrong sample entry need to reject playback*/
         st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_ERROR;
+    } else {
+        /* The spec requires that playback be refused, but the stream without these sample entries */
+        /* may be a normal stream, not a Dolby stream with an incorrect sample entry. Playback should */
+        /* not be refused, so it is modified to the default unknown value. */
+        st->codec->has_dolby_vision_config_box = AV_DV_BOX_TYPE_UNKNOWN;
     }
 }
 
@@ -7733,10 +7738,34 @@ static int mov_read_dvxC(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
 }
 
 static int mov_read_sgpd(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
+    int version;
     uint32_t grouping_type;
-    avio_rb128(pb);
+    version = avio_r8(pb);
+    avio_rb24(pb); /* flags */
+
+    if (version == 0) {
+        goto parse_av1M;
+    }
+
+    avio_rb32(pb); /*gtyp*/
+    int32_t default_length;
+    int32_t default_sample_description_index;
+    int32_t entry_count;
+    if (version == 1) {
+        default_length = avio_rb32(pb);
+    } else if (version >= 2) {
+        default_sample_description_index = avio_rb32(pb);
+    }
+    entry_count = avio_rb32(pb);
+    if (version == 1) {
+        if (default_length == 0) {
+            default_length = avio_rb32(pb);
+        }
+    }
+parse_av1M:
+    //for parse av1M metadata
     grouping_type = avio_rb32(pb);
-    if (grouping_type != 0x6176314D)  //av1M
+    if (grouping_type != 0x6176314D && grouping_type != 0x6176316D)  //av1M,av1m
         return 0;
     c->metadata_type = avio_r8(pb);
     c->metadata_specific_parameters = avio_rb24(pb);

@@ -8813,6 +8813,8 @@ static int mov_read_header(AVFormatContext *s)
             mov->frag_index.item[i].headers_read = 1;
 
 #ifdef AMFFMPEG
+    if (mov->fc->nb_streams < 1)
+        return 0;
     AVStream *st = mov->fc->streams[mov->fc->nb_streams-1];
     mov_get_dolby_vision_playback_mode(mov, st);
 #endif

@@ -524,6 +524,7 @@ enum AVCodecID {
     AV_CODEC_ID_FASTAUDIO,
 #ifdef AMFFMPEG
     AV_CODEC_ID_AVS3_AUDIO,        // AVS3-P3 3D Audio/Audio Vivid Audio Codec ID
+    AV_CODEC_ID_DTS_X,
 #endif
 
     /* subtitle codecs */

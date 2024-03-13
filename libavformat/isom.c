@@ -59,6 +59,7 @@ const AVCodecTag ff_mp4_obj_type[] = {
     { AV_CODEC_ID_AC3         , 0xA5 },
     { AV_CODEC_ID_EAC3        , 0xA6 },
     { AV_CODEC_ID_DTS         , 0xA9 }, /* mp4ra.org */
+    { AV_CODEC_ID_DTS_X       , 0xB2 },
     { AV_CODEC_ID_OPUS        , 0xAD }, /* mp4ra.org */
     { AV_CODEC_ID_VP9         , 0xB1 }, /* mp4ra.org */
     { AV_CODEC_ID_FLAC        , 0xC1 }, /* nonstandard, update when there is a standard value */

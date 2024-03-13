@@ -277,6 +277,9 @@ static int vc1_split(AVCodecContext *avctx,
 static av_cold int vc1_parse_init(AVCodecParserContext *s)
 {
     VC1ParseContext *vpc = s->priv_data;
+#ifdef AMFFMPEG
+    vpc->v.s.pict_type == AV_PICTURE_TYPE_NONE;
+#endif
     vpc->v.s.slice_context_count = 1;
     vpc->v.first_pic_header_flag = 1;
     vpc->prev_start_code = 0;

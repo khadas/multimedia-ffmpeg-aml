@@ -220,6 +220,12 @@ typedef struct DynamicRangeControl {
     int prog_ref_level;                             /**< A reference level for the long-term program audio level for all
                                                      *   channels combined.
                                                      */
+#ifdef AMFFMPEG
+    int present;
+    int num_bands;
+    INTFLOAT ctrl1;
+    INTFLOAT ctrl2;
+#endif
 } DynamicRangeControl;
 
 typedef struct Pulse {

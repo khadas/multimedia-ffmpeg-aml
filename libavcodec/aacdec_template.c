@@ -1726,6 +1726,41 @@ static int decode_tns(AACContext *ac, TemporalNoiseShaping *tns,
     return 0;
 }
 
+#ifdef AMFFMPEG
+#define DRC_REF_LEVEL 23*4 /* -23 dB */
+
+/**
+ * Decode drc.
+ */
+static void decode_drc(DynamicRangeControl *drc, INTFLOAT *spec)
+{
+    uint16_t i, bd, top;
+    INTFLOAT factor, exp;
+    uint16_t bottom = 0;
+
+    if (drc->num_bands == 1) {
+        drc->band_top[0] = 1024 / 4 - 1;
+    }
+
+    for (bd = 0; bd < drc->num_bands; bd++) {
+        top = 4 * (drc->band_top[bd] + 1);
+        /* Decode DRC gain factor */
+        if (drc->dyn_rng_sgn[bd]) { /* compress */
+            exp = (-drc->ctrl1 * drc->dyn_rng_ctl[bd] - (DRC_REF_LEVEL - drc->prog_ref_level)) / 24.0;
+        } else { /* boost */
+            exp = (drc->ctrl2 *  drc->dyn_rng_ctl[bd] - (DRC_REF_LEVEL - drc->prog_ref_level)) / 24.0;
+        }
+        factor = (INTFLOAT)pow(2.0, exp);
+
+        /* Apply gain factor */
+        for (i = bottom; i < top; i++) {
+            spec[i] *= factor;
+        }
+        bottom = top;
+    }
+}
+#endif
+
 /**
  * Decode Mid/Side data; reference: table 4.54.
  *
@@ -2194,7 +2229,12 @@ static int decode_ics(AACContext *ac, SingleChannelElement *sce,
                                     &pulse, ics, sce->band_type);
     if (ret < 0)
         goto fail;
-
+#ifdef AMFFMPEG
+    DynamicRangeControl *drc = &ac->che_drc;
+    if (1 == drc->present) {
+        decode_drc(drc , out);
+    }
+#endif
     if (ac->oc[1].m4ac.object_type == AOT_AAC_MAIN && !common_window)
         apply_prediction(ac, sce);
 
@@ -2484,6 +2524,12 @@ static int decode_dynamic_range(DynamicRangeControl *che_drc,
 
     /* prog_ref_level_present? */
     if (get_bits1(gb)) {
+#ifdef AMFFMPEG
+        che_drc->present = 1;
+        che_drc->num_bands = drc_num_bands;
+        che_drc->ctrl1 = 1.0;
+        che_drc->ctrl2 = 1.0;
+#endif
         che_drc->prog_ref_level = get_bits(gb, 7);
         skip_bits1(gb); // prog_ref_level_reserved_bits
         n++;

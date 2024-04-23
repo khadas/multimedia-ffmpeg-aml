@@ -7765,7 +7765,9 @@ static int mov_read_sgpd(MOVContext *c, AVIOContext *pb, MOVAtom atom) {
 parse_av1M:
     //for parse av1M metadata
     grouping_type = avio_rb32(pb);
-    if (grouping_type != 0x6176314D && grouping_type != 0x6176316D)  //av1M,av1m
+    if (grouping_type != 0x4156314D && grouping_type != 0x4156316D && grouping_type != 0x4176316D &&
+        grouping_type != 0x4156316D && grouping_type != 0x6156314D && grouping_type != 0x6156316D &&
+        grouping_type != 0x6176314D && grouping_type != 0x6176316D)  //AV1M,AV1m,Av1M,Av1m,aV1M,aV1m,av1M,av1m
         return 0;
     c->metadata_type = avio_r8(pb);
     c->metadata_specific_parameters = avio_rb24(pb);
